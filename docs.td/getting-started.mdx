@@ -1,0 +1,97 @@
+---
+title: Getting Started
+description: Deploy your own Redis.do instance on Cloudflare Workers
+---
+
+## Prerequisites
+
+- [Cloudflare account](https://dash.cloudflare.com/sign-up)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+- Node.js 18+
+
+## Installation
+
+Install the client library using your preferred package manager:
+
+```bash
+# npm
+npm install redis.do
+
+# pnpm
+pnpm add redis.do
+
+# yarn
+yarn add redis.do
+```
+
+## Deploy Your Own Instance
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dot-do/redis.git
+cd redis.do
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Authentication (Optional)
+
+Create a `.dev.vars` file for local development:
+
+```
+AUTH_TOKEN=your-secret-token
+```
+
+For production, set the secret:
+
+```bash
+wrangler secret put AUTH_TOKEN
+```
+
+### 4. Deploy
+
+```bash
+# Development
+npm run dev
+
+# Production
+npm run deploy
+```
+
+### 5. Verify Deployment
+
+Check that your instance is running:
+
+```bash
+curl https://your-redis.do.workers.dev/health
+# {"status":"ok","version":"0.1.0"}
+```
+
+## Connect to Your Instance
+
+Once deployed, connect using the client library:
+
+```typescript
+import { Redis } from 'redis.do/client'
+
+const redis = new Redis({
+  url: 'https://your-redis.do.workers.dev',
+  token: 'your-auth-token' // if you configured authentication
+})
+
+// Test the connection
+await redis.set('hello', 'world')
+const value = await redis.get('hello')
+console.log(value) // 'world'
+```
+
+## Next Steps
+
+- Learn about the [Client Library](/client) API
+- Explore [supported commands](/commands)
+- Set up [MCP integration](/mcp) for AI agents

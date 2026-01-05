@@ -1,0 +1,99 @@
+---
+title: Limitations
+description: Known limitations and differences from standard Redis
+---
+
+While Redis.do aims for Redis protocol compatibility, there are important differences to understand.
+
+## Transaction Atomicity (MULTI/EXEC)
+
+Redis.do does **not** provide true MULTI/EXEC transaction atomicity.
+
+In standard Redis, MULTI/EXEC guarantees that all commands in a transaction are executed atomically without interleaving from other clients. Redis.do does not provide this guarantee.
+
+### What Happens Instead
+
+When using `multi()` or `pipeline()` in Redis.do:
+
+- **Commands are batched** - Sent together for reduced network round trips
+- **Sequential execution** - Commands execute in order within the batch
+- **No isolation** - Other clients' commands may interleave between your batch commands
+- **No rollback** - Partial execution is possible if a command fails mid-batch
+- **No WATCH/UNWATCH** - Optimistic locking is not supported
+
+```typescript
+// This batches commands but does NOT provide atomicity
+const multi = redis.multi()
+multi.set('key1', 'value1')
+multi.incr('counter')
+const results = await multi.exec()
+```
+
+### Workarounds
+
+For operations that require atomicity:
+
+1. **Lua scripts via EVAL** - Use Lua scripting for atomic operations (limited support)
+2. **Single Durable Object** - Structure data to live within a single shard for stronger consistency
+3. **Application-level locking** - Implement distributed locks for critical sections
+
+## Pub/Sub
+
+- **SUBSCRIBE** is only available via WebSocket connections
+- **PUBLISH** works normally via the REST API or client
+- Pattern subscriptions (PSUBSCRIBE) are not supported
+
+## Cluster Mode
+
+- Redis.do handles sharding internally
+- Redis Cluster commands (CLUSTER, READONLY, etc.) are not supported
+- Data distribution is managed automatically by Durable Objects
+
+## Persistence
+
+- Data is persisted to SQLite in Durable Objects
+- RDB/AOF file persistence is not supported
+- Point-in-time recovery is handled by Cloudflare's Durable Object infrastructure
+
+## Lua Scripting
+
+- EVAL/EVALSHA support is limited compared to standard Redis
+- Complex Lua scripts may not work as expected
+- For advanced scripting needs, use the `redis_do` MCP tool with JavaScript
+
+## Unsupported Commands
+
+The following command categories are not supported:
+
+- **Cluster**: CLUSTER, READONLY, READWRITE
+- **Replication**: SLAVEOF, REPLICAOF, SYNC
+- **Scripting**: Full Lua compatibility
+- **Streams**: XADD, XREAD, XRANGE, etc.
+- **Modules**: Redis modules are not supported
+
+## Performance Characteristics
+
+Redis.do has different performance characteristics than traditional Redis:
+
+| Aspect | Standard Redis | Redis.do |
+|--------|----------------|----------|
+| Latency | Sub-millisecond (local) | ~10-50ms (edge) |
+| Throughput | Very high (single instance) | Horizontally scalable |
+| Memory | In-memory only | SQLite-backed persistence |
+| Availability | Depends on setup | Cloudflare's global network |
+
+## When to Use Redis.do
+
+Redis.do is ideal for:
+
+- Edge applications needing low-latency data access globally
+- Serverless architectures without infrastructure management
+- AI agent integrations via MCP
+- Applications that can tolerate eventual consistency
+
+Consider standard Redis for:
+
+- Applications requiring strict transaction atomicity
+- Very high throughput single-region workloads
+- Full Lua scripting requirements
+- Redis Streams or module dependencies

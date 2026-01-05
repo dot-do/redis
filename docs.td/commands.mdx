@@ -1,0 +1,136 @@
+---
+title: Commands
+description: Complete reference of supported Redis commands
+---
+
+Redis.do supports all major Redis data types and their associated commands.
+
+## Strings
+
+String commands for working with simple key-value pairs.
+
+| Command | Description |
+|---------|-------------|
+| `GET key` | Get the value of a key |
+| `SET key value [EX seconds] [PX ms] [NX\|XX]` | Set a key to a value |
+| `MGET key [key ...]` | Get values of multiple keys |
+| `MSET key value [key value ...]` | Set multiple keys |
+| `INCR key` | Increment integer value by 1 |
+| `DECR key` | Decrement integer value by 1 |
+| `INCRBY key increment` | Increment integer value by amount |
+| `DECRBY key decrement` | Decrement integer value by amount |
+| `APPEND key value` | Append value to existing string |
+| `STRLEN key` | Get length of value |
+| `SETEX key seconds value` | Set with expiration (seconds) |
+| `SETNX key value` | Set only if key doesn't exist |
+| `GETSET key value` | Set and return old value |
+
+## Hashes
+
+Hash commands for working with field-value pairs within a key.
+
+| Command | Description |
+|---------|-------------|
+| `HGET key field` | Get value of a hash field |
+| `HSET key field value [field value ...]` | Set hash field(s) |
+| `HMGET key field [field ...]` | Get values of multiple fields |
+| `HMSET key field value [field value ...]` | Set multiple fields |
+| `HGETALL key` | Get all fields and values |
+| `HDEL key field [field ...]` | Delete hash field(s) |
+| `HEXISTS key field` | Check if field exists |
+| `HKEYS key` | Get all field names |
+| `HVALS key` | Get all values |
+| `HLEN key` | Get number of fields |
+| `HINCRBY key field increment` | Increment field value |
+
+## Lists
+
+List commands for working with ordered collections.
+
+| Command | Description |
+|---------|-------------|
+| `LPUSH key element [element ...]` | Prepend elements to list |
+| `RPUSH key element [element ...]` | Append elements to list |
+| `LPOP key [count]` | Remove and return first element(s) |
+| `RPOP key [count]` | Remove and return last element(s) |
+| `LRANGE key start stop` | Get range of elements |
+| `LINDEX key index` | Get element by index |
+| `LSET key index element` | Set element at index |
+| `LLEN key` | Get list length |
+| `LREM key count element` | Remove elements |
+| `LTRIM key start stop` | Trim list to range |
+| `LINSERT key BEFORE\|AFTER pivot element` | Insert element |
+
+## Sets
+
+Set commands for working with unordered unique collections.
+
+| Command | Description |
+|---------|-------------|
+| `SADD key member [member ...]` | Add members to set |
+| `SREM key member [member ...]` | Remove members from set |
+| `SMEMBERS key` | Get all members |
+| `SISMEMBER key member` | Check if member exists |
+| `SCARD key` | Get number of members |
+| `SPOP key [count]` | Remove and return random member(s) |
+| `SRANDMEMBER key [count]` | Get random member(s) |
+| `SDIFF key [key ...]` | Get difference between sets |
+| `SINTER key [key ...]` | Get intersection of sets |
+| `SUNION key [key ...]` | Get union of sets |
+
+## Sorted Sets
+
+Sorted set commands for working with scored, ordered collections.
+
+| Command | Description |
+|---------|-------------|
+| `ZADD key score member [score member ...]` | Add members with scores |
+| `ZREM key member [member ...]` | Remove members |
+| `ZSCORE key member` | Get score of member |
+| `ZRANK key member` | Get rank of member (ascending) |
+| `ZRANGE key start stop [WITHSCORES]` | Get range by rank (ascending) |
+| `ZREVRANGE key start stop [WITHSCORES]` | Get range by rank (descending) |
+| `ZCARD key` | Get number of members |
+| `ZCOUNT key min max` | Count members in score range |
+| `ZINCRBY key increment member` | Increment member score |
+| `ZPOPMIN key [count]` | Remove and return lowest scored member(s) |
+| `ZPOPMAX key [count]` | Remove and return highest scored member(s) |
+
+## Keys
+
+Key management commands.
+
+| Command | Description |
+|---------|-------------|
+| `DEL key [key ...]` | Delete keys |
+| `EXISTS key [key ...]` | Check if keys exist |
+| `EXPIRE key seconds` | Set key expiration (seconds) |
+| `TTL key` | Get time to live (seconds) |
+| `PTTL key` | Get time to live (milliseconds) |
+| `PERSIST key` | Remove expiration |
+| `TYPE key` | Get key type |
+| `KEYS pattern` | Find keys matching pattern |
+| `SCAN cursor [MATCH pattern] [COUNT count]` | Iterate keys |
+| `RENAME key newkey` | Rename a key |
+
+## Server
+
+Server management and utility commands.
+
+| Command | Description |
+|---------|-------------|
+| `PING [message]` | Test connection |
+| `ECHO message` | Return message |
+| `DBSIZE` | Get number of keys |
+| `FLUSHDB` | Delete all keys |
+| `INFO [section]` | Get server information |
+
+## Pub/Sub
+
+Publish/Subscribe commands for messaging.
+
+| Command | Description |
+|---------|-------------|
+| `PUBLISH channel message` | Publish message to channel |
+
+Note: SUBSCRIBE is only available via WebSocket connection.

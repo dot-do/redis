@@ -1,0 +1,190 @@
+---
+title: Client Library
+description: ioredis-compatible client with pipelining support
+---
+
+The Redis.do client provides a familiar ioredis-compatible API with full TypeScript support.
+
+## Configuration
+
+```typescript
+import { Redis } from 'redis.do/client'
+
+const redis = new Redis({
+  url: string,                    // Your Redis.do worker URL
+  token?: string,                 // Optional auth token
+  enableAutoPipelining?: boolean  // Auto-batch commands (default: false)
+})
+```
+
+## Basic Operations
+
+### Strings
+
+```typescript
+// Set and get values
+await redis.set('name', 'Alice')
+const name = await redis.get('name') // 'Alice'
+
+// Set with expiration
+await redis.set('session', 'abc123', { ex: 3600 }) // expires in 1 hour
+
+// Multiple keys
+await redis.mset('key1', 'value1', 'key2', 'value2')
+const values = await redis.mget('key1', 'key2') // ['value1', 'value2']
+```
+
+### Counters
+
+```typescript
+await redis.set('views', '0')
+await redis.incr('views')        // 1
+await redis.incrby('views', 10)  // 11
+await redis.decr('views')        // 10
+await redis.decrby('views', 5)   // 5
+```
+
+### Hashes
+
+```typescript
+// Set hash fields
+await redis.hset('user:1', 'name', 'Alice', 'email', 'alice@example.com')
+
+// Get individual field
+const name = await redis.hget('user:1', 'name') // 'Alice'
+
+// Get all fields
+const user = await redis.hgetall('user:1')
+// { name: 'Alice', email: 'alice@example.com' }
+
+// Check existence
+const exists = await redis.hexists('user:1', 'name') // 1
+
+// List keys and values
+const keys = await redis.hkeys('user:1')   // ['name', 'email']
+const values = await redis.hvals('user:1') // ['Alice', 'alice@example.com']
+```
+
+### Lists
+
+```typescript
+// Push items
+await redis.lpush('queue', 'job1', 'job2', 'job3')
+await redis.rpush('queue', 'job4')
+
+// Pop items
+const first = await redis.lpop('queue') // 'job3'
+const last = await redis.rpop('queue')  // 'job4'
+
+// Get range
+const jobs = await redis.lrange('queue', 0, -1) // ['job2', 'job1']
+
+// Get by index
+const item = await redis.lindex('queue', 0) // 'job2'
+```
+
+### Sets
+
+```typescript
+// Add members
+await redis.sadd('tags', 'redis', 'cloudflare', 'serverless')
+
+// Check membership
+const isMember = await redis.sismember('tags', 'redis') // 1
+
+// Get all members
+const tags = await redis.smembers('tags')
+
+// Set operations
+await redis.sadd('set1', 'a', 'b', 'c')
+await redis.sadd('set2', 'b', 'c', 'd')
+
+const diff = await redis.sdiff('set1', 'set2')   // ['a']
+const inter = await redis.sinter('set1', 'set2') // ['b', 'c']
+const union = await redis.sunion('set1', 'set2') // ['a', 'b', 'c', 'd']
+```
+
+### Sorted Sets
+
+```typescript
+// Add with scores
+await redis.zadd('leaderboard', 100, 'alice', 200, 'bob', 150, 'charlie')
+
+// Get by rank (ascending)
+const bottom = await redis.zrange('leaderboard', 0, 2)
+// ['alice', 'charlie', 'bob']
+
+// Get by rank (descending)
+const top = await redis.zrevrange('leaderboard', 0, 2)
+// ['bob', 'charlie', 'alice']
+
+// Get score
+const score = await redis.zscore('leaderboard', 'alice') // '100'
+
+// Get rank
+const rank = await redis.zrank('leaderboard', 'bob') // 2
+```
+
+## Key Expiration
+
+```typescript
+// Set with expiration (seconds)
+await redis.set('temp', 'data', { ex: 60 })
+
+// Set with expiration (milliseconds)
+await redis.set('temp2', 'data', { px: 5000 })
+
+// Set expiration on existing key
+await redis.expire('mykey', 300) // expires in 5 minutes
+
+// Check TTL
+const ttl = await redis.ttl('mykey')   // seconds remaining
+const pttl = await redis.pttl('mykey') // milliseconds remaining
+
+// Remove expiration
+await redis.persist('mykey')
+```
+
+## Pipelining
+
+Batch multiple commands for efficient execution:
+
+```typescript
+const pipeline = redis.pipeline()
+pipeline.set('key1', 'value1')
+pipeline.set('key2', 'value2')
+pipeline.get('key1')
+pipeline.get('key2')
+pipeline.incr('counter')
+
+const results = await pipeline.exec()
+// [[null, 'OK'], [null, 'OK'], [null, 'value1'], [null, 'value2'], [null, 1]]
+```
+
+## REST API
+
+Redis.do exposes an Upstash-compatible REST API for direct HTTP access:
+
+```bash
+# GET request
+curl https://your-redis.do.workers.dev/GET/mykey
+
+# POST request with JSON array
+curl -X POST https://your-redis.do.workers.dev \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '["SET", "mykey", "myvalue"]'
+```
+
+## Worker Exports
+
+When using Redis.do as a library in your Cloudflare Worker:
+
+```typescript
+// Main exports
+export { RedisShard, RedisPubSub, RedisCoordinator } from 'redis.do'
+export { Redis.doEntrypoint } from 'redis.do'
+
+// Types
+export type { Env, SetOptions, ScanOptions, ZAddOptions, ZRangeOptions } from 'redis.do'
+```

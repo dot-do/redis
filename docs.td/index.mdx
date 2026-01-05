@@ -1,18 +1,46 @@
 ---
-title: Welcome
-description: Documentation for redis.do
+title: Redis.do
+description: 100% Redis-compatible database on Cloudflare Workers, Durable Objects, and SQLite
 ---
 
-# Welcome to redis.do
+Redis.do is a fully Redis-compatible database built on Cloudflare Workers, Durable Objects, and SQLite. Deploy your own Redis instance at the edge with zero operational overhead.
 
-100% Redis-compatible database on Cloudflare Workers, Durable Objects, and SQLite
+## Why Redis.do?
 
-## Getting Started
+- **100% Redis Protocol Compatible** - Drop-in replacement for Redis with support for all major data types
+- **Edge-Native** - Runs on Cloudflare's global network with sub-millisecond latency worldwide
+- **Durable Storage** - Data persisted in SQLite-backed Durable Objects for reliability
+- **Serverless** - No servers to manage, scales automatically with demand
+- **MCP Integration** - Built-in Model Context Protocol server for AI agent integration
+- **Upstash-Compatible REST API** - Use existing Upstash clients seamlessly
 
-Add your getting started guide here.
+## Quick Start
 
-## Features
+Install the client library:
 
-- Feature 1
-- Feature 2
-- Feature 3
+```bash
+npm install redis.do
+```
+
+Connect to your Redis.do instance:
+
+```typescript
+import { Redis } from 'redis.do/client'
+
+const redis = new Redis({
+  url: 'https://your-redis.do.workers.dev',
+  token: 'your-auth-token' // optional
+})
+
+// Use like any Redis client
+await redis.set('key', 'value')
+const value = await redis.get('key')
+```
+
+## What's Next?
+
+- [Getting Started](/getting-started) - Deploy your own instance
+- [Client Library](/client) - Full client API documentation
+- [Commands](/commands) - Supported Redis commands
+- [MCP Integration](/mcp) - AI agent integration guide
+- [Deployment](/deployment) - Production deployment guide

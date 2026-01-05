@@ -1,0 +1,114 @@
+---
+title: Deployment
+description: Production deployment guide for Redis.do on Cloudflare Workers
+---
+
+## Prerequisites
+
+- [Cloudflare account](https://dash.cloudflare.com/sign-up)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+- Node.js 18+
+
+## Deploy Your Own Instance
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dot-do/redis.git
+cd redis.do
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Authentication
+
+For local development, create a `.dev.vars` file:
+
+```
+AUTH_TOKEN=your-secret-token
+```
+
+For production, set the secret using Wrangler:
+
+```bash
+wrangler secret put AUTH_TOKEN
+```
+
+### 4. Deploy
+
+```bash
+# Development (local)
+npm run dev
+
+# Production
+npm run deploy
+```
+
+## Environment Configuration
+
+Configure your deployment via `wrangler.jsonc`:
+
+```jsonc
+{
+  "name": "redis.do",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "REDIS_SHARDS", "class_name": "RedisShard" },
+      { "name": "REDIS_PUBSUB", "class_name": "RedisPubSub" },
+      { "name": "REDIS_COORDINATOR", "class_name": "RedisCoordinator" }
+    ]
+  }
+}
+```
+
+### Durable Object Bindings
+
+| Binding | Class | Purpose |
+|---------|-------|---------|
+| `REDIS_SHARDS` | `RedisShard` | Primary data storage across shards |
+| `REDIS_PUBSUB` | `RedisPubSub` | Pub/Sub message routing |
+| `REDIS_COORDINATOR` | `RedisCoordinator` | Cross-shard coordination |
+
+## Health Check
+
+Verify your deployment is running:
+
+```bash
+curl https://your-redis.do.workers.dev/health
+```
+
+Expected response:
+
+```json
+{"status":"ok","version":"0.1.0"}
+```
+
+## Custom Domain
+
+To use a custom domain:
+
+1. Go to your Cloudflare dashboard
+2. Navigate to Workers & Pages > your-redis-do worker
+3. Click "Triggers" > "Custom Domains"
+4. Add your custom domain
+
+## Scaling Considerations
+
+Redis.do automatically scales with Cloudflare's infrastructure:
+
+- **Durable Objects** handle sharding automatically
+- **SQLite storage** is persisted per Durable Object
+- **Geographic distribution** is handled by Cloudflare's edge network
+
+For high-traffic deployments, consider:
+
+- Using multiple Redis.do instances for different data domains
+- Implementing application-level caching for frequently accessed data
+- Monitoring request patterns to optimize shard distribution

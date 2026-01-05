@@ -1,0 +1,122 @@
+---
+title: MCP Integration
+description: Model Context Protocol server for AI agent integration
+---
+
+Redis.do includes a built-in Model Context Protocol (MCP) server, enabling AI agents to interact with your Redis data directly.
+
+## MCP Endpoint
+
+The MCP server is available at `/mcp` on your Redis.do deployment:
+
+```
+https://your-redis.do.workers.dev/mcp
+```
+
+## Claude Desktop Configuration
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "redis.do": {
+      "command": "npx",
+      "args": ["redis.do-mcp"],
+      "env": {
+        "REDIS_URL": "https://your-redis.do.workers.dev",
+        "REDIS_TOKEN": "your-auth-token"
+      }
+    }
+  }
+}
+```
+
+## Available MCP Tools
+
+The MCP server exposes Redis commands as tools that AI agents can use:
+
+### String Operations
+
+| Tool | Description |
+|------|-------------|
+| `redis_get` | Get a string value |
+| `redis_set` | Set a string value with optional expiration |
+| `redis_del` | Delete one or more keys |
+| `redis_keys` | List keys matching a pattern |
+
+### Hash Operations
+
+| Tool | Description |
+|------|-------------|
+| `redis_hget` | Get a hash field value |
+| `redis_hset` | Set hash field(s) |
+| `redis_hgetall` | Get all fields and values from a hash |
+
+### List Operations
+
+| Tool | Description |
+|------|-------------|
+| `redis_lpush` | Prepend elements to a list |
+| `redis_rpush` | Append elements to a list |
+| `redis_lrange` | Get a range of elements from a list |
+
+### Set Operations
+
+| Tool | Description |
+|------|-------------|
+| `redis_sadd` | Add members to a set |
+| `redis_smembers` | Get all members of a set |
+
+### Sorted Set Operations
+
+| Tool | Description |
+|------|-------------|
+| `redis_zadd` | Add members with scores to a sorted set |
+| `redis_zrange` | Get a range of members from a sorted set |
+
+### Advanced
+
+| Tool | Description |
+|------|-------------|
+| `redis_do` | Execute arbitrary Redis commands or JavaScript with Redis access |
+
+## Secure Code Execution
+
+The `redis_do` tool allows executing sandboxed JavaScript with full Redis access. This enables complex data processing operations:
+
+```javascript
+// Example: Get all active users
+const keys = await redis.keys('user:*')
+const users = await Promise.all(
+  keys.map(async (key) => ({
+    id: key.split(':')[1],
+    ...await redis.hgetall(key)
+  }))
+)
+return users.filter(u => u.active === 'true')
+```
+
+```javascript
+// Example: Aggregate statistics
+const sessions = await redis.keys('session:*')
+const stats = {
+  total: sessions.length,
+  byUser: {}
+}
+
+for (const key of sessions) {
+  const session = await redis.hgetall(key)
+  const userId = session.userId
+  stats.byUser[userId] = (stats.byUser[userId] || 0) + 1
+}
+
+return stats
+```
+
+## Security Considerations
+
+- Code execution is sandboxed within a Worker Loader environment
+- Scripts have access only to the Redis client, not the broader environment
+- Authentication tokens protect access to the MCP endpoint
+- All operations are logged for audit purposes
