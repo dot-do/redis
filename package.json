@@ -52,7 +52,7 @@
   "author": "Nathan Clevenger",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dot-do/redois.git"
+    "url": "https://github.com/dot-do/redis.git"
   },
   "license": "MIT",
   "devDependencies": {

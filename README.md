@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/redis.do"><img src="https://img.shields.io/npm/v/redis.do.svg" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/redis.do"><img src="https://img.shields.io/npm/dm/redis.do.svg" alt="npm downloads" /></a>
-  <a href="https://github.com/dot-do/redois/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/redis.do.svg" alt="license" /></a>
+  <a href="https://github.com/dot-do/redis/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/redis.do.svg" alt="license" /></a>
 </p>
 
 ---
@@ -61,7 +61,7 @@ npm install redis.do
 Clone and deploy your own Redis.do instance:
 
 ```bash
-git clone https://github.com/dot-do/redois.git
+git clone https://github.com/dot-do/redis.git
 cd redis.do
 npm install
 npm run deploy
@@ -284,7 +284,7 @@ return users.filter(u => u.active === 'true')
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/dot-do/redois.git
+git clone https://github.com/dot-do/redis.git
 cd redis.do
 ```
 
