@@ -1,0 +1,77 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "redois",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-01",
+
+  // Required for Node.js compat
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+
+  // Durable Objects configuration
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REDIS_SHARDS",
+        "class_name": "RedisShard"
+      },
+      {
+        "name": "REDIS_PUBSUB",
+        "class_name": "RedisPubSub"
+      },
+      {
+        "name": "REDIS_COORDINATOR",
+        "class_name": "RedisCoordinator"
+      }
+    ]
+  },
+
+  // SQLite-backed Durable Objects for persistence
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RedisShard", "RedisPubSub", "RedisCoordinator"]
+    }
+  ],
+
+  // Worker Loader for MCP "do" tool - secure sandboxed code execution
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ],
+
+  // Observability
+  "observability": {
+    "enabled": true
+  },
+
+  // Development
+  "dev": {
+    "port": 8787,
+    "local_protocol": "http"
+  },
+
+  // Environments
+  "env": {
+    "dev": {
+      "name": "redois-dev",
+      "vars": {
+        "ENVIRONMENT": "development"
+      }
+    },
+    "staging": {
+      "name": "redois-staging",
+      "vars": {
+        "ENVIRONMENT": "staging"
+      }
+    },
+    "production": {
+      "name": "redois",
+      "vars": {
+        "ENVIRONMENT": "production"
+      }
+    }
+  }
+}

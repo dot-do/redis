@@ -1,0 +1,568 @@
+---
+title: Cloudflare Deployment Guide
+description: Complete guide to deploying Redois on Cloudflare Workers with wrangler.jsonc configuration, environments, secrets, and production best practices.
+---
+
+# Cloudflare Deployment Guide
+
+This guide covers everything you need to deploy Redois to Cloudflare Workers, from initial setup to production configuration.
+
+## Prerequisites
+
+Before deploying Redois, ensure you have:
+
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (Free tier works for development)
+- [Node.js](https://nodejs.org/) 18.0 or later
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) installed
+
+```bash
+# Install Wrangler globally
+npm install -g wrangler
+
+# Login to Cloudflare
+wrangler login
+```
+
+## Quick Start
+
+### Option 1: Clone and Deploy
+
+The fastest way to deploy Redois:
+
+```bash
+# Clone the repository
+git clone https://github.com/nathanclevenger/redois.git
+cd redois
+
+# Install dependencies
+npm install
+
+# Deploy to Cloudflare
+npm run deploy
+```
+
+### Option 2: Create from Template
+
+```bash
+npx create-cloudflare@latest my-redis --template redois
+cd my-redis
+npm run deploy
+```
+
+### Option 3: Add to Existing Worker
+
+Install Redois as a dependency:
+
+```bash
+npm install redois
+```
+
+Then configure your worker (see Configuration section below).
+
+## Configuration
+
+### wrangler.jsonc Setup
+
+The `wrangler.jsonc` file is the core configuration for your Redois deployment. Here is a complete, annotated configuration:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "redois",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-01",
+
+  // Required compatibility flags
+  "compatibility_flags": [
+    "nodejs_compat",        // Required for Node.js APIs
+    "enable_ctx_exports"    // Required for Worker Loader (code execution)
+  ],
+
+  // Durable Objects - the core of Redois
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REDIS_SHARDS",
+        "class_name": "RedisShard"
+      },
+      {
+        "name": "REDIS_PUBSUB",
+        "class_name": "RedisPubSub"
+      },
+      {
+        "name": "REDIS_COORDINATOR",
+        "class_name": "RedisCoordinator"
+      }
+    ]
+  },
+
+  // SQLite storage for Durable Objects
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RedisShard", "RedisPubSub", "RedisCoordinator"]
+    }
+  ],
+
+  // Worker Loader for MCP code execution (optional)
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ],
+
+  // Enable observability for debugging
+  "observability": {
+    "enabled": true
+  }
+}
+```
+
+<Callout type="warning">
+The `migrations` section is required for SQLite-backed Durable Objects. Once deployed, do not remove existing migrations - only add new ones for schema changes.
+</Callout>
+
+### Required Bindings
+
+| Binding | Type | Description |
+|---------|------|-------------|
+| `REDIS_SHARDS` | Durable Object | Primary data storage (256 shards) |
+| `REDIS_PUBSUB` | Durable Object | Pub/Sub message routing |
+| `REDIS_COORDINATOR` | Durable Object | Cross-shard coordination |
+| `LOADER` | Worker Loader | Optional: Sandboxed code execution |
+
+### Environment Variables
+
+Configure environment variables in `wrangler.jsonc`:
+
+```jsonc
+{
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
+}
+```
+
+Or set them per environment:
+
+```jsonc
+{
+  "env": {
+    "production": {
+      "vars": {
+        "ENVIRONMENT": "production"
+      }
+    },
+    "staging": {
+      "vars": {
+        "ENVIRONMENT": "staging"
+      }
+    }
+  }
+}
+```
+
+## Authentication
+
+### Setting Up AUTH_TOKEN
+
+Protect your Redois instance with bearer token authentication:
+
+```bash
+# Set the secret in Cloudflare
+wrangler secret put AUTH_TOKEN
+# Enter your token when prompted
+```
+
+For local development, create a `.dev.vars` file:
+
+```
+AUTH_TOKEN=your-development-token
+```
+
+<Callout type="info">
+The `.dev.vars` file should be added to `.gitignore` to prevent committing secrets.
+</Callout>
+
+### Using Authentication
+
+Once configured, all API requests require the Authorization header:
+
+```bash
+curl -X POST https://your-redois.workers.dev \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '["SET", "key", "value"]'
+```
+
+With the client library:
+
+```typescript
+const redis = new Redis({
+  url: 'https://your-redois.workers.dev',
+  token: 'your-token'
+})
+```
+
+## Multi-Environment Setup
+
+### Environment Configuration
+
+Define multiple environments for development, staging, and production:
+
+```jsonc
+{
+  "name": "redois",
+  "main": "src/worker.ts",
+
+  "env": {
+    "dev": {
+      "name": "redois-dev",
+      "vars": {
+        "ENVIRONMENT": "development"
+      }
+    },
+    "staging": {
+      "name": "redois-staging",
+      "vars": {
+        "ENVIRONMENT": "staging"
+      }
+    },
+    "production": {
+      "name": "redois-production",
+      "vars": {
+        "ENVIRONMENT": "production"
+      }
+    }
+  }
+}
+```
+
+### Deploying to Environments
+
+```bash
+# Deploy to development
+wrangler deploy --env dev
+
+# Deploy to staging
+wrangler deploy --env staging
+
+# Deploy to production
+wrangler deploy --env production
+```
+
+### Environment-Specific Secrets
+
+Set secrets per environment:
+
+```bash
+# Production
+wrangler secret put AUTH_TOKEN --env production
+
+# Staging
+wrangler secret put AUTH_TOKEN --env staging
+```
+
+## Local Development
+
+### Starting the Dev Server
+
+```bash
+# Start local development server
+npm run dev
+# or
+wrangler dev
+```
+
+This starts a local server at `http://localhost:8787` with:
+- Hot reloading on code changes
+- Local Durable Object simulation
+- Access to your local `.dev.vars` secrets
+
+### Dev Server Options
+
+Configure development settings in `wrangler.jsonc`:
+
+```jsonc
+{
+  "dev": {
+    "port": 8787,
+    "local_protocol": "http",
+    "ip": "0.0.0.0"
+  }
+}
+```
+
+### Testing Locally
+
+```bash
+# Test health endpoint
+curl http://localhost:8787/health
+
+# Test Redis commands
+curl -X POST http://localhost:8787 \
+  -H "Content-Type: application/json" \
+  -d '["SET", "test", "hello"]'
+
+curl http://localhost:8787/GET/test
+```
+
+## Production Deployment
+
+### Deployment Commands
+
+```bash
+# Build and deploy
+npm run deploy
+# or
+wrangler deploy
+
+# Deploy with specific environment
+wrangler deploy --env production
+```
+
+### Verifying Deployment
+
+After deployment, verify your instance:
+
+```bash
+# Check health
+curl https://your-redois.workers.dev/health
+# Response: {"status":"ok","version":"0.1.0"}
+
+# Test a command
+curl -X POST https://your-redois.workers.dev \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '["PING"]'
+# Response: {"result":"PONG"}
+```
+
+### Deployment Checklist
+
+Before going to production:
+
+- Set `AUTH_TOKEN` secret for authentication
+- Configure proper environment variables
+- Enable observability for monitoring
+- Test all critical endpoints
+- Set up alerting in Cloudflare dashboard
+- Review Durable Object storage limits
+
+## Custom Domains
+
+### Adding a Custom Domain
+
+1. Go to your Worker in the Cloudflare dashboard
+2. Click "Triggers" tab
+3. Add a custom domain or route
+
+Or configure in `wrangler.jsonc`:
+
+```jsonc
+{
+  "routes": [
+    {
+      "pattern": "redis.yourdomain.com/*",
+      "zone_name": "yourdomain.com"
+    }
+  ]
+}
+```
+
+### Workers Routes
+
+For more control over routing:
+
+```jsonc
+{
+  "routes": [
+    "redis.yourdomain.com/*",
+    "api.yourdomain.com/redis/*"
+  ]
+}
+```
+
+## Observability
+
+### Enabling Logs and Metrics
+
+```jsonc
+{
+  "observability": {
+    "enabled": true
+  }
+}
+```
+
+### Viewing Logs
+
+```bash
+# Tail logs in real-time
+wrangler tail
+
+# Filter logs
+wrangler tail --format pretty --search "error"
+```
+
+### Cloudflare Dashboard
+
+Access detailed metrics in the Cloudflare dashboard:
+- Workers Analytics
+- Durable Objects metrics
+- Error rates and latency
+
+## Resource Limits
+
+### Cloudflare Workers Limits
+
+| Resource | Free | Paid |
+|----------|------|------|
+| Requests/day | 100,000 | Unlimited |
+| CPU time/request | 10ms | 30-50ms |
+| Subrequests | 50 | 1000 |
+| Script size | 1MB | 10MB |
+
+### Durable Objects Limits
+
+| Resource | Limit |
+|----------|-------|
+| Storage per DO | 10GB |
+| CPU time per request | 30 seconds |
+| WebSocket connections | 32,768 per DO |
+| Concurrent requests | Unlimited (sequential execution) |
+
+<Callout type="info">
+Redois distributes data across 256 shards, giving you an effective storage limit of 2.56TB (256 x 10GB). In practice, you will hit request limits before storage limits.
+</Callout>
+
+## Pricing
+
+### Workers
+
+- **Free Plan**: 100,000 requests/day, 10ms CPU/request
+- **Paid Plan ($5/month)**: 10 million requests/month included, then $0.50/million
+
+### Durable Objects
+
+- **Requests**: $0.15 per million requests
+- **Storage**: $0.20 per GB-month
+- **Duration**: $12.50 per million GB-seconds
+
+### Cost Estimation
+
+For a typical application with:
+- 1 million requests/month
+- 100MB data storage
+- Average 50ms CPU per request
+
+Estimated monthly cost: approximately $10-15/month
+
+## Troubleshooting
+
+### Common Issues
+
+**"Durable Object not found" error:**
+
+Ensure migrations are properly configured and deployed. Run `wrangler deploy` to sync migrations.
+
+**"Unauthorized" response:**
+
+Check that AUTH_TOKEN is set and you are passing the correct token. Verify with `wrangler secret list`.
+
+**Slow response times:**
+
+- Check if you are using KEYS command (use SCAN instead)
+- Enable pipelining for batch operations
+- Review Durable Object locations
+
+### Debugging Tips
+
+1. **Enable verbose logging:**
+```bash
+wrangler tail --format pretty
+```
+
+2. **Check Durable Object status:**
+```bash
+curl https://your-redois.workers.dev/health
+```
+
+3. **Test individual commands:**
+```bash
+curl -X POST https://your-redois.workers.dev \
+  -H "Content-Type: application/json" \
+  -d '["PING"]'
+```
+
+## Upgrading
+
+### Version Upgrades
+
+To upgrade Redois:
+
+```bash
+# Update dependency
+npm update redois
+
+# Rebuild and deploy
+npm run deploy
+```
+
+### Migration Handling
+
+When adding new features that require schema changes, add a new migration:
+
+```jsonc
+{
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RedisShard", "RedisPubSub", "RedisCoordinator"]
+    },
+    {
+      "tag": "v2",
+      "renamed_classes": [
+        {
+          "from": "OldClassName",
+          "to": "NewClassName"
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Callout type="error">
+Never remove or modify existing migrations. Only append new migrations. Removing migrations can cause data loss.
+</Callout>
+
+## Best Practices
+
+### Security
+
+1. **Always use AUTH_TOKEN** in production
+2. **Use environment-specific secrets** - different tokens per environment
+3. **Limit KEYS usage** - can expose all keys; use SCAN with patterns
+4. **Audit access logs** - use wrangler tail for monitoring
+
+### Performance
+
+1. **Use pipelining** for batch operations
+2. **Prefer SCAN over KEYS** for large keyspaces
+3. **Set appropriate TTLs** to prevent unbounded growth
+4. **Use hashes** for structured data instead of JSON strings
+
+### Reliability
+
+1. **Monitor health endpoint** with uptime checks
+2. **Set up alerts** in Cloudflare dashboard
+3. **Test failover** by simulating DO failures
+4. **Backup critical data** - consider periodic exports
+
+## Next Steps
+
+- [Command Reference](/docs/commands) - Full Redis command documentation
+- [Architecture](/docs/architecture) - Understand the system design
+- [Client Library](/docs/client) - JavaScript/TypeScript client usage
+- [MCP Integration](/docs/mcp) - AI agent integration guide

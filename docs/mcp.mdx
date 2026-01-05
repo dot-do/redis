@@ -1,0 +1,698 @@
+---
+title: MCP Integration Guide
+description: Using Redois with Model Context Protocol (MCP) for AI agent interactions, including tools, transports, and secure code execution.
+---
+
+# MCP Integration Guide
+
+Redois includes built-in support for the Model Context Protocol (MCP), enabling AI agents to interact with your Redis data through a standardized interface. This guide covers MCP concepts, available tools, transport options, and integration with AI assistants.
+
+<Callout type="info">
+MCP is an open standard developed by Anthropic for connecting AI assistants to external tools and data sources. Learn more at [modelcontextprotocol.io](https://modelcontextprotocol.io).
+</Callout>
+
+## What is MCP?
+
+The Model Context Protocol (MCP) is an open standard for connecting AI assistants to external data sources and tools. It provides a JSON-RPC 2.0 based protocol that allows AI models to:
+
+- **Read data** from external systems
+- **Execute actions** through defined tools
+- **Access resources** with proper authentication
+- **Run code** in sandboxed environments
+
+Redois implements MCP server capabilities, allowing any MCP-compatible client (like Claude Desktop) to interact with your Redis data.
+
+## Available MCP Tools
+
+Redois exposes five MCP tools for Redis operations:
+
+### redis_get
+
+Retrieve the value of a key.
+
+**Schema:**
+```json
+{
+  "name": "redis_get",
+  "description": "Get the value of a Redis key",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "The key to retrieve"
+      }
+    },
+    "required": ["key"]
+  }
+}
+```
+
+**Example:**
+```json
+{
+  "name": "redis_get",
+  "arguments": {
+    "key": "user:123:profile"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"name\": \"John Doe\", \"email\": \"john@example.com\"}"
+    }
+  ]
+}
+```
+
+### redis_set
+
+Set a key to a string value with optional expiration.
+
+**Schema:**
+```json
+{
+  "name": "redis_set",
+  "description": "Set a Redis key to a value",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "The key to set"
+      },
+      "value": {
+        "type": "string",
+        "description": "The value to store"
+      },
+      "ex": {
+        "type": "integer",
+        "description": "Expiration time in seconds"
+      },
+      "nx": {
+        "type": "boolean",
+        "description": "Only set if key does not exist"
+      },
+      "xx": {
+        "type": "boolean",
+        "description": "Only set if key exists"
+      }
+    },
+    "required": ["key", "value"]
+  }
+}
+```
+
+**Example:**
+```json
+{
+  "name": "redis_set",
+  "arguments": {
+    "key": "session:abc123",
+    "value": "{\"userId\": 123, \"role\": \"admin\"}",
+    "ex": 3600
+  }
+}
+```
+
+### redis_keys
+
+Find all keys matching a pattern.
+
+**Schema:**
+```json
+{
+  "name": "redis_keys",
+  "description": "Find keys matching a pattern",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "type": "string",
+        "description": "Glob-style pattern (e.g., 'user:*')"
+      }
+    },
+    "required": ["pattern"]
+  }
+}
+```
+
+**Example:**
+```json
+{
+  "name": "redis_keys",
+  "arguments": {
+    "pattern": "user:*:profile"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "[\"user:123:profile\", \"user:456:profile\", \"user:789:profile\"]"
+    }
+  ]
+}
+```
+
+### redis_scan
+
+Incrementally iterate through keys.
+
+**Schema:**
+```json
+{
+  "name": "redis_scan",
+  "description": "Iterate keys with cursor-based pagination",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "cursor": {
+        "type": "integer",
+        "description": "Cursor position (0 to start)"
+      },
+      "match": {
+        "type": "string",
+        "description": "Pattern to match"
+      },
+      "count": {
+        "type": "integer",
+        "description": "Number of keys to return per call"
+      },
+      "type": {
+        "type": "string",
+        "description": "Filter by data type"
+      }
+    },
+    "required": ["cursor"]
+  }
+}
+```
+
+**Example:**
+```json
+{
+  "name": "redis_scan",
+  "arguments": {
+    "cursor": 0,
+    "match": "session:*",
+    "count": 100
+  }
+}
+```
+
+### redis_do
+
+Execute arbitrary Redis commands or JavaScript code with Redis access.
+
+**Schema:**
+```json
+{
+  "name": "redis_do",
+  "description": "Execute Redis commands or code with Redis access",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "Redis command (e.g., 'HGETALL user:123')"
+      },
+      "code": {
+        "type": "string",
+        "description": "JavaScript code to execute with redis object available"
+      }
+    }
+  },
+  "annotations": {
+    "destructiveHint": true
+  }
+}
+```
+
+**Command Example:**
+```json
+{
+  "name": "redis_do",
+  "arguments": {
+    "command": "HGETALL user:123:profile"
+  }
+}
+```
+
+**Code Example:**
+```json
+{
+  "name": "redis_do",
+  "arguments": {
+    "code": "const users = await redis.keys('user:*:profile'); const profiles = await Promise.all(users.map(k => redis.hgetall(k))); return profiles;"
+  }
+}
+```
+
+## HTTP Transport
+
+Redois exposes MCP over HTTP at the `/mcp` endpoint. This is the primary transport for web-based integrations.
+
+### Endpoint
+
+```
+POST https://your-worker.workers.dev/mcp
+Content-Type: application/json
+Authorization: Bearer <token>  // if AUTH_TOKEN is configured
+```
+
+### Request Format
+
+MCP uses JSON-RPC 2.0:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "redis_get",
+    "arguments": {
+      "key": "mykey"
+    }
+  }
+}
+```
+
+### Initialize Handshake
+
+Before calling tools, clients should initialize:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "my-client",
+      "version": "1.0.0"
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "tools": {
+        "listChanged": false
+      }
+    },
+    "serverInfo": {
+      "name": "redois",
+      "version": "0.1.0"
+    }
+  }
+}
+```
+
+### List Available Tools
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/list"
+}
+```
+
+### Call a Tool
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "redis_get",
+    "arguments": {
+      "key": "user:123"
+    }
+  }
+}
+```
+
+### Full Example
+
+```bash
+# Initialize
+curl -X POST https://your-worker.workers.dev/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "curl", "version": "1.0"}
+    }
+  }'
+
+# Call redis_set
+curl -X POST https://your-worker.workers.dev/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "redis_set",
+      "arguments": {
+        "key": "greeting",
+        "value": "Hello from MCP!"
+      }
+    }
+  }'
+```
+
+## Stdio Transport
+
+For CLI integration, Redois provides a stdio transport via the `redois-mcp` binary.
+
+### Installation
+
+```bash
+npm install -g redois
+# or
+npx redois-mcp
+```
+
+### Usage
+
+```bash
+# Connect to a deployed Redois instance
+redois-mcp --url https://your-worker.workers.dev --token your-auth-token
+
+# For local development
+redois-mcp --url http://localhost:8787
+```
+
+### Configuration
+
+The CLI reads from environment variables:
+
+```bash
+export REDOIS_URL=https://your-worker.workers.dev
+export REDOIS_TOKEN=your-auth-token
+
+redois-mcp
+```
+
+## Worker Loader Sandbox
+
+The `redis_do` tool supports executing arbitrary JavaScript code in a secure sandbox using Cloudflare's Worker Loader API.
+
+### How It Works
+
+1. When code is provided to `redis_do`, it's wrapped in a Worker module
+2. The Worker is loaded via the Worker Loader binding
+3. Code executes in an isolated environment with only `redis` access
+4. Results are returned after execution (max 30 second timeout)
+
+### Security Features
+
+<Callout type="warning">
+While code execution is sandboxed, you should still validate that AUTH_TOKEN is set in production to prevent unauthorized access to your Redis data.
+</Callout>
+
+- **Isolated V8 Isolate**: Each execution runs in a fresh isolate
+- **No Network Access**: Code cannot make external requests
+- **No File System**: No access to files or environment
+- **Limited Globals**: Only `redis` proxy and standard JS globals
+- **Timeout**: 30 second maximum execution time
+- **Memory Limits**: Standard Worker memory constraints
+
+### Available Redis Methods
+
+Inside the sandbox, the `redis` object provides:
+
+```javascript
+// String operations
+await redis.get(key)
+await redis.set(key, value, options)
+await redis.incr(key)
+await redis.decr(key)
+await redis.append(key, value)
+
+// Hash operations
+await redis.hget(key, field)
+await redis.hset(key, field, value)
+await redis.hgetall(key)
+await redis.hdel(key, ...fields)
+
+// List operations
+await redis.lpush(key, ...values)
+await redis.rpush(key, ...values)
+await redis.lpop(key)
+await redis.rpop(key)
+await redis.lrange(key, start, stop)
+
+// Set operations
+await redis.sadd(key, ...members)
+await redis.srem(key, ...members)
+await redis.smembers(key)
+await redis.sismember(key, member)
+
+// Sorted set operations
+await redis.zadd(key, score, member)
+await redis.zrange(key, start, stop)
+await redis.zscore(key, member)
+await redis.zrem(key, ...members)
+
+// Key operations
+await redis.del(...keys)
+await redis.exists(...keys)
+await redis.expire(key, seconds)
+await redis.ttl(key)
+await redis.keys(pattern)
+await redis.scan(cursor, options)
+await redis.type(key)
+
+// Server operations
+await redis.dbsize()
+await redis.ping()
+await redis.flushdb()
+```
+
+### Code Examples
+
+**Batch processing:**
+```javascript
+const keys = await redis.keys('temp:*');
+let deleted = 0;
+for (const key of keys) {
+  await redis.del(key);
+  deleted++;
+}
+return { deleted };
+```
+
+**Data transformation:**
+```javascript
+const users = await redis.keys('user:*:profile');
+const results = [];
+
+for (const key of users) {
+  const profile = await redis.hgetall(key);
+  if (profile.status === 'active') {
+    results.push({
+      id: key.split(':')[1],
+      name: profile.name,
+      email: profile.email
+    });
+  }
+}
+
+return results;
+```
+
+**Aggregation:**
+```javascript
+const keys = await redis.keys('metric:*:daily');
+let total = 0;
+let count = 0;
+
+for (const key of keys) {
+  const value = await redis.get(key);
+  if (value) {
+    total += parseInt(value, 10);
+    count++;
+  }
+}
+
+return {
+  average: count > 0 ? total / count : 0,
+  total,
+  count
+};
+```
+
+### Enabling Worker Loader
+
+To use the code execution feature, configure Worker Loader in your `wrangler.jsonc`:
+
+```jsonc
+{
+  "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ]
+}
+```
+
+## Claude Desktop Integration
+
+Redois can be integrated with Claude Desktop for AI-assisted Redis operations.
+
+### Configuration
+
+Add to your Claude Desktop configuration (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "redois": {
+      "command": "npx",
+      "args": ["redois-mcp"],
+      "env": {
+        "REDOIS_URL": "https://your-worker.workers.dev",
+        "REDOIS_TOKEN": "your-auth-token"
+      }
+    }
+  }
+}
+```
+
+### Alternative: Direct HTTP
+
+For direct HTTP integration without the CLI:
+
+```json
+{
+  "mcpServers": {
+    "redois": {
+      "url": "https://your-worker.workers.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer your-auth-token"
+      }
+    }
+  }
+}
+```
+
+### Usage Examples
+
+Once configured, you can ask Claude to:
+
+- "What keys are stored in my Redis database?"
+- "Get the user profile for user ID 123"
+- "Set a session token with 1 hour expiration"
+- "Find all active sessions and list their user IDs"
+- "Calculate the total of all daily metrics"
+
+## Authentication
+
+### Bearer Token
+
+Set the `AUTH_TOKEN` environment variable to require authentication:
+
+```bash
+wrangler secret put AUTH_TOKEN
+# Enter your token when prompted
+```
+
+Clients must then include the Authorization header:
+
+```
+Authorization: Bearer your-token
+```
+
+### Custom Authentication
+
+For custom authentication, modify the MCP handler in your entrypoint:
+
+```typescript
+const server = createMcpServer({
+  redisAccess,
+  name: 'redois',
+  version: '0.1.0',
+})
+
+this.mcpHandler = createHttpMcpHandler(server, {
+  authenticate: async (req) => {
+    const apiKey = req.headers.get('X-API-Key')
+    const isValid = await validateApiKey(apiKey)
+    return { authenticated: isValid }
+  }
+})
+```
+
+## Error Handling
+
+MCP responses include error information when operations fail:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: Key not found"
+      }
+    ],
+    "isError": true
+  }
+}
+```
+
+### Common Error Codes
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -32700 | Parse error | Invalid JSON |
+| -32600 | Invalid request | Malformed JSON-RPC |
+| -32601 | Method not found | Unknown MCP method |
+| -32602 | Invalid params | Invalid tool arguments |
+| -32603 | Internal error | Server-side error |
+
+## Rate Limiting
+
+Configure rate limiting for MCP endpoints:
+
+```typescript
+this.mcpHandler = createHttpMcpHandler(server, {
+  rateLimit: {
+    windowMs: 60000,     // 1 minute window
+    maxRequests: 100     // 100 requests per window
+  }
+})
+```

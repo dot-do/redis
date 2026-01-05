@@ -1,0 +1,57 @@
+# Source files (dist is published)
+src/
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+
+# Cloudflare dev files
+.wrangler/
+.dev.vars
+.dev.vars.local
+wrangler.jsonc
+wrangler.toml
+wrangler.local.toml
+
+# Development
+.github/
+.vscode/
+.idea/
+.beads/
+
+# Testing
+tests/
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output/
+vitest.config.*
+
+# Documentation source (keep README)
+docs/
+AGENTS.md
+CONTRIBUTING.md
+
+# Build artifacts
+*.tsbuildinfo
+
+# Development files
+.eslintrc*
+.prettierrc*
+.editorconfig
+.gitattributes
+
+# CI/CD
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Examples (if any)
+examples/
+
+# Miscellaneous
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

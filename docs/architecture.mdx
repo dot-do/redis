@@ -1,0 +1,453 @@
+---
+title: System Architecture
+description: Deep dive into Redois architecture including Durable Objects, sharding strategy, SQLite schema, and TTL management.
+---
+
+# System Architecture
+
+Redois is built on Cloudflare's edge infrastructure, leveraging Durable Objects for consistent storage and Workers for request routing. This document explains the system architecture and design decisions.
+
+<Callout type="info">
+Understanding the architecture helps you optimize performance, plan capacity, and troubleshoot issues in production deployments.
+</Callout>
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Client Requests                                     │
+│                    (REST API, RPC, MCP, WebSocket)                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           Cloudflare Worker                                      │
+│                         (RedoisEntrypoint)                                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
+│  │   /health   │  │    /rpc     │  │    /mcp     │  │  REST API   │            │
+│  │   Handler   │  │   Handler   │  │   Handler   │  │  (Upstash)  │            │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    │                 │                 │
+                    ▼                 ▼                 ▼
+┌───────────────────────┐  ┌───────────────────────┐  ┌───────────────────────┐
+│      RedisShard       │  │     RedisPubSub       │  │   RedisCoordinator    │
+│   (Durable Object)    │  │   (Durable Object)    │  │   (Durable Object)    │
+│                       │  │                       │  │                       │
+│  ┌─────────────────┐  │  │  ┌─────────────────┐  │  │  ┌─────────────────┐  │
+│  │     SQLite      │  │  │  │   WebSocket     │  │  │  │     SQLite      │  │
+│  │   (per shard)   │  │  │  │  Connections    │  │  │  │   (metadata)    │  │
+│  └─────────────────┘  │  │  └─────────────────┘  │  │  └─────────────────┘  │
+│                       │  │                       │  │                       │
+│  - Key/Value Storage  │  │  - Channel Subs      │  │  - Cluster State      │
+│  - TTL Management     │  │  - Pattern Subs      │  │  - Shard Mapping      │
+│  - Data Types         │  │  - Message Routing   │  │  - Global Operations  │
+└───────────────────────┘  └───────────────────────┘  └───────────────────────┘
+        × 256                      × 1                        × 1
+```
+
+## Durable Objects
+
+Redois uses three types of Durable Objects, each with a specific responsibility.
+
+### RedisShard
+
+The `RedisShard` Durable Object is the primary storage component. It handles all data operations for keys assigned to its shard.
+
+**Responsibilities:**
+- Store and retrieve key-value data
+- Manage all Redis data types (strings, hashes, lists, sets, sorted sets)
+- Handle TTL expiration using Cloudflare Alarms
+- Implement Redis commands as RPC methods
+
+**Scaling:**
+- 256 shards provide horizontal scaling
+- Each shard is an independent Durable Object instance
+- Shards are created on-demand when first accessed
+
+```typescript
+// Shard selection uses consistent hashing
+function getShardForKey(key: string): DurableObjectStub {
+  const hash = hashKey(key)
+  const shardId = env.REDIS_SHARDS.idFromName(`shard-${hash % 256}`)
+  return env.REDIS_SHARDS.get(shardId)
+}
+
+function hashKey(key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    const char = key.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return Math.abs(hash)
+}
+```
+
+### RedisPubSub
+
+The `RedisPubSub` Durable Object handles all publish/subscribe functionality using Hibernatable WebSockets.
+
+**Responsibilities:**
+- Manage WebSocket connections for subscribers
+- Route published messages to channel subscribers
+- Handle pattern-based subscriptions
+- Maintain subscription state across hibernation
+
+**Key Features:**
+- Uses Cloudflare's Hibernatable WebSockets for efficient connection management
+- Supports both exact channel and glob pattern subscriptions
+- Automatically restores subscription state after DO hibernation
+
+```typescript
+// Hibernatable WebSocket handling
+async webSocketMessage(ws: WebSocket, message: string): Promise<void> {
+  const data = JSON.parse(message)
+  switch (data.action) {
+    case 'subscribe':
+      this.subscribe(ws, data.channels)
+      break
+    case 'psubscribe':
+      this.psubscribe(ws, data.patterns)
+      break
+    case 'unsubscribe':
+      this.unsubscribe(ws, data.channels)
+      break
+  }
+}
+
+// Message publishing
+async publish(channel: string, message: string): Promise<number> {
+  let count = 0
+
+  // Direct channel subscribers
+  const channelSubs = this.channelSubscribers.get(channel)
+  if (channelSubs) {
+    for (const ws of channelSubs) {
+      ws.send(JSON.stringify({ type: 'message', channel, message }))
+      count++
+    }
+  }
+
+  // Pattern subscribers
+  for (const [pattern, patternSubs] of this.patternSubscribers) {
+    if (this.matchPattern(pattern, channel)) {
+      for (const ws of patternSubs) {
+        ws.send(JSON.stringify({ type: 'pmessage', pattern, channel, message }))
+        count++
+      }
+    }
+  }
+
+  return count
+}
+```
+
+### RedisCoordinator
+
+The `RedisCoordinator` Durable Object manages global operations that span multiple shards.
+
+**Responsibilities:**
+- Coordinate cross-shard operations (KEYS, SCAN, DBSIZE)
+- Manage cluster metadata
+- Handle FLUSHDB/FLUSHALL operations
+- Store global configuration
+
+## Sharding Strategy
+
+Redois uses a fixed 256-shard architecture with consistent hashing for key distribution.
+
+### Hash Function
+
+Keys are mapped to shards using a simple but effective hash function:
+
+```
+shard_index = abs(hash(key)) % 256
+```
+
+This ensures:
+- Deterministic shard assignment (same key always goes to same shard)
+- Even distribution across shards
+- No central coordination needed for reads/writes
+
+### Multi-Key Operations
+
+For commands that operate on multiple keys (MGET, DEL with multiple keys), Redois:
+
+1. Groups keys by their target shard
+2. Executes operations in parallel across shards
+3. Aggregates results
+
+```typescript
+async mget(...keys: string[]): Promise<(string | null)[]> {
+  return Promise.all(
+    keys.map(key => this.getShardForKey(key).get(key))
+  )
+}
+
+async delMultiple(keys: string[]): Promise<number> {
+  const results = await Promise.all(
+    keys.map(key => this.getShardForKey(key).del(key))
+  )
+  return results.reduce((sum, count) => sum + count, 0)
+}
+```
+
+## SQLite Schema
+
+Each RedisShard uses SQLite for persistent storage. The schema is designed to efficiently support all Redis data types.
+
+### Keys Table
+
+Stores metadata for all keys:
+
+```sql
+CREATE TABLE IF NOT EXISTS keys (
+  key TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('string', 'hash', 'list', 'set', 'zset', 'stream')),
+  expires_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch('now') * 1000)
+);
+
+CREATE INDEX IF NOT EXISTS idx_keys_expires ON keys(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_keys_type ON keys(type);
+```
+
+### Strings Table
+
+Stores string values:
+
+```sql
+CREATE TABLE IF NOT EXISTS strings (
+  key TEXT PRIMARY KEY REFERENCES keys(key) ON DELETE CASCADE,
+  value TEXT NOT NULL
+);
+```
+
+### Hashes Table
+
+Stores hash field-value pairs:
+
+```sql
+CREATE TABLE IF NOT EXISTS hashes (
+  key TEXT NOT NULL REFERENCES keys(key) ON DELETE CASCADE,
+  field TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (key, field)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hashes_key ON hashes(key);
+```
+
+### Lists Table
+
+Stores list elements with position:
+
+```sql
+CREATE TABLE IF NOT EXISTS lists (
+  key TEXT NOT NULL REFERENCES keys(key) ON DELETE CASCADE,
+  position REAL NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (key, position)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lists_key_position ON lists(key, position);
+```
+
+<Callout type="info">
+Using REAL for position allows efficient LPUSH/RPUSH without reindexing: LPUSH inserts with `position = min(existing) - 1` and RPUSH inserts with `position = max(existing) + 1`.
+</Callout>
+
+### Sets Table
+
+Stores set members:
+
+```sql
+CREATE TABLE IF NOT EXISTS sets (
+  key TEXT NOT NULL REFERENCES keys(key) ON DELETE CASCADE,
+  member TEXT NOT NULL,
+  PRIMARY KEY (key, member)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sets_key ON sets(key);
+```
+
+### Sorted Sets Table
+
+Stores sorted set members with scores:
+
+```sql
+CREATE TABLE IF NOT EXISTS zsets (
+  key TEXT NOT NULL REFERENCES keys(key) ON DELETE CASCADE,
+  member TEXT NOT NULL,
+  score REAL NOT NULL,
+  PRIMARY KEY (key, member)
+);
+
+CREATE INDEX IF NOT EXISTS idx_zsets_key ON zsets(key);
+CREATE INDEX IF NOT EXISTS idx_zsets_key_score ON zsets(key, score);
+```
+
+## TTL and Expiration
+
+Redois implements key expiration using Cloudflare's Alarms API for efficiency.
+
+### Setting Expiration
+
+When a TTL is set on a key:
+
+1. The `expires_at` timestamp is stored in the keys table
+2. An alarm is scheduled for the earliest expiring key
+3. Multiple expirations are batched into a single alarm
+
+```typescript
+async setExpiration(key: string, expiresAt: number): Promise<void> {
+  // Update database
+  await this.ctx.storage.sql.exec(
+    'UPDATE keys SET expires_at = ? WHERE key = ?',
+    expiresAt, key
+  )
+
+  // Schedule alarm if this is the earliest expiration
+  const currentAlarm = await this.ctx.storage.getAlarm()
+  if (!currentAlarm || expiresAt < currentAlarm) {
+    await this.ctx.storage.setAlarm(expiresAt)
+  }
+}
+```
+
+### Alarm Handler
+
+When an alarm fires:
+
+1. Delete all keys with `expires_at <= now`
+2. Find the next expiring key
+3. Schedule a new alarm if needed
+
+```typescript
+async alarm(): Promise<void> {
+  const now = Date.now()
+
+  // Delete expired keys
+  await this.ctx.storage.sql.exec(
+    'DELETE FROM keys WHERE expires_at IS NOT NULL AND expires_at <= ?',
+    now
+  )
+
+  // Schedule next alarm
+  const nextExpiry = await this.ctx.storage.sql.exec(
+    'SELECT MIN(expires_at) as next FROM keys WHERE expires_at IS NOT NULL'
+  ).one()
+
+  if (nextExpiry?.next) {
+    await this.ctx.storage.setAlarm(nextExpiry.next)
+  }
+}
+```
+
+### Lazy Expiration
+
+In addition to alarm-based expiration, keys are checked on access:
+
+```typescript
+async get(key: string): Promise<string | null> {
+  const row = await this.ctx.storage.sql.exec(
+    `SELECT s.value, k.expires_at
+     FROM strings s
+     JOIN keys k ON s.key = k.key
+     WHERE s.key = ?`,
+    key
+  ).one()
+
+  if (!row) return null
+
+  // Check lazy expiration
+  if (row.expires_at && row.expires_at <= Date.now()) {
+    await this.del(key)
+    return null
+  }
+
+  return row.value
+}
+```
+
+## Request Flow
+
+### REST API Request
+
+```
+1. Client sends: POST /SET/mykey/myvalue
+2. Worker receives request
+3. RedoisEntrypoint.fetch() parses the path
+4. handleRest() extracts command and args
+5. executeCommand() routes to SET handler
+6. getShardForKey("mykey") determines shard
+7. shard.set("mykey", "myvalue") called via RPC
+8. RedisShard executes SQL INSERT/UPDATE
+9. Response: {"result": "OK"}
+```
+
+### RPC Request
+
+```
+1. Client sends: POST /rpc with JSON-RPC batch
+2. Worker receives request
+3. RedoisEntrypoint.fetch() routes to /rpc
+4. handleRpc() processes batch
+5. For each command:
+   a. Determine target shard
+   b. Execute via Durable Object RPC
+6. Aggregate results
+7. Response: JSON-RPC batch response
+```
+
+### MCP Request
+
+```
+1. Client sends: POST /mcp with MCP message
+2. Worker receives request
+3. RedoisEntrypoint.fetch() routes to /mcp
+4. handleMcp() creates/uses MCP server
+5. MCP server processes tool call
+6. Redis operations executed via createRedisAccess()
+7. Response: MCP response with tool result
+```
+
+## Performance Considerations
+
+### Latency
+
+- **Single-key operations**: ~10-50ms (single DO round-trip)
+- **Multi-key same shard**: ~10-50ms (parallelized within DO)
+- **Multi-key cross-shard**: ~10-50ms (parallel DO calls)
+- **KEYS/SCAN**: ~100-500ms (queries all shards)
+
+### Throughput
+
+- Each shard handles requests sequentially
+- 256 shards allow ~256x parallelism
+- Global operations (KEYS, DBSIZE) are bottlenecked by slowest shard
+
+### Storage
+
+- SQLite provides efficient B-tree storage
+- Indexes optimize common access patterns
+- Each DO has up to 10GB storage limit
+
+## Scaling Considerations
+
+### Current Limitations
+
+- Fixed 256 shards (sufficient for most use cases)
+- Single RedisPubSub DO (consider sharding by channel prefix)
+- Cross-shard operations query all shards
+
+### Future Improvements
+
+- Dynamic shard count based on key count
+- Sharded pub/sub for high-throughput scenarios
+- Read replicas using Durable Object locations
+- Batch optimization for pipeline operations

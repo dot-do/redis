@@ -1,0 +1,200 @@
+---
+title: Introduction to Redois
+description: A Redis-compatible database built on Cloudflare Workers, Durable Objects, and SQLite with MCP support.
+---
+
+# Introduction to Redois
+
+Redois is a **Redis-compatible database** built entirely on Cloudflare's edge infrastructure. It provides a familiar Redis API while leveraging Cloudflare Workers, Durable Objects, and SQLite for persistence, making it ideal for serverless applications that need low-latency data access at the edge.
+
+## What is Redois?
+
+Redois implements the Redis wire protocol and command set on top of Cloudflare's global network. Instead of running a traditional Redis server, your data is distributed across Cloudflare's edge locations using Durable Objects with SQLite storage.
+
+This architecture provides several unique advantages:
+
+- **Global Distribution**: Data is automatically replicated and accessible from any Cloudflare edge location
+- **Serverless**: No servers to manage, automatic scaling, pay-per-use pricing
+- **Persistence**: SQLite-backed storage ensures data durability without snapshots or AOF
+- **MCP Integration**: Built-in Model Context Protocol support for AI agent interactions
+
+## Key Features
+
+### Redis-Compatible API
+
+Redois supports the most commonly used Redis commands across all data types:
+
+- **Strings**: GET, SET, INCR, APPEND, and more
+- **Hashes**: HGET, HSET, HGETALL, HINCRBY
+- **Lists**: LPUSH, RPUSH, LPOP, RPOP, LRANGE
+- **Sets**: SADD, SREM, SMEMBERS, SINTER, SUNION
+- **Sorted Sets**: ZADD, ZRANGE, ZRANK, ZSCORE
+- **Keys**: DEL, EXISTS, EXPIRE, TTL, SCAN
+
+### Cloudflare-Native
+
+Built specifically for Cloudflare's platform:
+
+- **Durable Objects** for consistent, strongly-consistent storage
+- **SQLite** for efficient, persistent data storage
+- **Workers** for request handling and routing
+- **Alarms API** for automatic TTL expiration
+
+### Serverless Architecture
+
+- Zero infrastructure management
+- Automatic scaling based on demand
+- Pay only for what you use
+- No connection pooling required
+
+### MCP Support
+
+Native support for the Model Context Protocol (MCP) enables AI agents to interact with your Redis data:
+
+- HTTP transport at `/mcp` endpoint
+- Stdio transport for CLI integration
+- Sandboxed code execution via Worker Loader
+- Integration with Claude Desktop and other MCP clients
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install redois
+```
+
+### Deploying to Cloudflare
+
+1. Clone or create a new project:
+
+```bash
+npx create-cloudflare@latest my-redis --template redois
+```
+
+2. Configure your `wrangler.jsonc`:
+
+```jsonc
+{
+  "name": "my-redis",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "REDIS_SHARDS", "class_name": "RedisShard" },
+      { "name": "REDIS_PUBSUB", "class_name": "RedisPubSub" },
+      { "name": "REDIS_COORDINATOR", "class_name": "RedisCoordinator" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RedisShard", "RedisPubSub", "RedisCoordinator"]
+    }
+  ]
+}
+```
+
+3. Deploy:
+
+```bash
+wrangler deploy
+```
+
+### Using the REST API
+
+Once deployed, you can interact with Redois using HTTP requests:
+
+```bash
+# SET a key
+curl -X POST https://your-worker.workers.dev \
+  -H "Content-Type: application/json" \
+  -d '["SET", "mykey", "Hello World"]'
+
+# GET a key
+curl https://your-worker.workers.dev/GET/mykey
+
+# Response: {"result": "Hello World"}
+```
+
+### Using the Client Library
+
+For Node.js applications, use the Redois client:
+
+```typescript
+import { Redis } from 'redois/client'
+
+const redis = new Redis({
+  url: 'https://your-worker.workers.dev',
+  token: 'your-auth-token', // optional
+})
+
+// Basic operations
+await redis.set('user:1', 'John Doe')
+const name = await redis.get('user:1')
+console.log(name) // "John Doe"
+
+// With expiration
+await redis.set('session:abc', 'data', 'EX', 3600)
+
+// Hash operations
+await redis.hset('user:1:profile', 'email', 'john@example.com', 'age', '30')
+const profile = await redis.hgetall('user:1:profile')
+
+// Pipeline for batching
+const pipeline = redis.pipeline()
+pipeline.set('key1', 'value1')
+pipeline.set('key2', 'value2')
+pipeline.get('key1')
+const results = await pipeline.exec()
+```
+
+## Architecture Overview
+
+Redois uses a sharded architecture with three types of Durable Objects:
+
+```
+                    ┌─────────────────────────────────┐
+                    │       Cloudflare Worker         │
+                    │        (RedoisEntrypoint)       │
+                    └────────────┬────────────────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           │                     │                     │
+           ▼                     ▼                     ▼
+    ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+    │ RedisShard  │      │ RedisPubSub │      │   Redis     │
+    │    (256)    │      │  (global)   │      │ Coordinator │
+    └─────────────┘      └─────────────┘      └─────────────┘
+           │                     │                     │
+           ▼                     ▼                     ▼
+    ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+    │   SQLite    │      │ WebSockets  │      │   SQLite    │
+    │  (per DO)   │      │ Hibernation │      │  (metadata) │
+    └─────────────┘      └─────────────┘      └─────────────┘
+```
+
+- **RedisShard**: Stores key-value data using SQLite. Keys are distributed across 256 shards using consistent hashing.
+- **RedisPubSub**: Handles publish/subscribe functionality using Hibernatable WebSockets.
+- **RedisCoordinator**: Manages cross-shard operations and cluster metadata.
+
+## Next Steps
+
+<Cards>
+  <Card title="Command Reference" href="/docs/commands">
+    Full list of supported Redis commands with examples
+  </Card>
+  <Card title="Architecture" href="/docs/architecture">
+    Deep dive into the system design, sharding, and SQLite schema
+  </Card>
+  <Card title="MCP Integration" href="/docs/mcp">
+    Using Redois with AI agents and the Model Context Protocol
+  </Card>
+  <Card title="Client Library" href="/docs/client">
+    JavaScript/TypeScript client documentation with ioredis-compatible API
+  </Card>
+  <Card title="Deployment Guide" href="/docs/deployment">
+    Production deployment configuration with wrangler.jsonc
+  </Card>
+</Cards>

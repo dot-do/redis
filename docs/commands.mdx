@@ -1,0 +1,1086 @@
+---
+title: Redis Command Reference
+description: Complete reference for all Redis commands supported by Redois, with examples and compatibility notes.
+---
+
+# Redis Command Reference
+
+Redois implements a comprehensive subset of Redis commands. This reference documents all supported commands with examples and notes on any differences from standard Redis behavior.
+
+<Callout type="info">
+All examples show Redis protocol syntax. When using the JavaScript client, use the equivalent method calls (e.g., `redis.set('key', 'value')` for `SET key value`).
+</Callout>
+
+## Command Support Status
+
+| Category | Fully Supported | Partial | Not Yet |
+|----------|----------------|---------|---------|
+| String | 19 commands | 1 | 0 |
+| Hash | 16 commands | 0 | 0 |
+| List | 15 commands | 0 | 2 |
+| Set | 17 commands | 0 | 0 |
+| Sorted Set | 24 commands | 0 | 4 |
+| Key | 21 commands | 0 | 2 |
+| Pub/Sub | 6 commands | 0 | 0 |
+| Server | 8 commands | 2 | 5 |
+
+## String Commands
+
+String commands operate on simple key-value pairs where the value is a string.
+
+### GET
+
+Get the value of a key.
+
+```bash
+GET key
+```
+
+**Example:**
+```bash
+SET greeting "Hello, World!"
+GET greeting
+# Returns: "Hello, World!"
+
+GET nonexistent
+# Returns: null
+```
+
+### SET
+
+Set the string value of a key.
+
+```bash
+SET key value [EX seconds] [PX milliseconds] [EXAT timestamp] [PXAT timestamp] [NX|XX] [KEEPTTL] [GET]
+```
+
+**Options:**
+- `EX seconds` - Set expiry in seconds
+- `PX milliseconds` - Set expiry in milliseconds
+- `EXAT timestamp` - Set expiry at Unix timestamp (seconds)
+- `PXAT timestamp` - Set expiry at Unix timestamp (milliseconds)
+- `NX` - Only set if key does not exist
+- `XX` - Only set if key exists
+- `KEEPTTL` - Retain existing TTL
+- `GET` - Return old value
+
+**Example:**
+```bash
+SET user:1 "John" EX 3600
+# Returns: "OK"
+
+SET user:1 "Jane" NX
+# Returns: null (key exists)
+
+SET user:1 "Jane" XX GET
+# Returns: "John" (old value)
+```
+
+### MGET
+
+Get values of multiple keys.
+
+```bash
+MGET key [key ...]
+```
+
+**Example:**
+```bash
+SET key1 "Hello"
+SET key2 "World"
+MGET key1 key2 nonexistent
+# Returns: ["Hello", "World", null]
+```
+
+### MSET
+
+Set multiple key-value pairs.
+
+```bash
+MSET key value [key value ...]
+```
+
+**Example:**
+```bash
+MSET key1 "Hello" key2 "World"
+# Returns: "OK"
+```
+
+### INCR / DECR
+
+Increment or decrement a key's integer value.
+
+```bash
+INCR key
+DECR key
+INCRBY key increment
+DECRBY key decrement
+INCRBYFLOAT key increment
+```
+
+**Example:**
+```bash
+SET counter 10
+INCR counter
+# Returns: 11
+
+INCRBY counter 5
+# Returns: 16
+
+INCRBYFLOAT price 2.5
+# Returns: "18.5"
+```
+
+### APPEND
+
+Append a value to a key.
+
+```bash
+APPEND key value
+```
+
+**Example:**
+```bash
+SET greeting "Hello"
+APPEND greeting " World"
+# Returns: 11 (new length)
+
+GET greeting
+# Returns: "Hello World"
+```
+
+### STRLEN
+
+Get the length of a string value.
+
+```bash
+STRLEN key
+```
+
+**Example:**
+```bash
+SET greeting "Hello"
+STRLEN greeting
+# Returns: 5
+```
+
+### GETRANGE / SETRANGE
+
+Get or set a substring of a string value.
+
+```bash
+GETRANGE key start end
+SETRANGE key offset value
+```
+
+**Example:**
+```bash
+SET greeting "Hello World"
+GETRANGE greeting 0 4
+# Returns: "Hello"
+
+SETRANGE greeting 6 "Redis"
+# Returns: 11
+GET greeting
+# Returns: "Hello Redis"
+```
+
+### SETNX / SETEX / PSETEX
+
+Conditional and expiring set operations.
+
+```bash
+SETNX key value
+SETEX key seconds value
+PSETEX key milliseconds value
+```
+
+**Example:**
+```bash
+SETNX lock:resource "owner123"
+# Returns: 1 (set successfully)
+
+SETNX lock:resource "owner456"
+# Returns: 0 (already exists)
+
+SETEX session:abc 3600 "session_data"
+# Returns: "OK" (expires in 1 hour)
+```
+
+---
+
+## Hash Commands
+
+Hash commands operate on hash data structures - maps of field-value pairs.
+
+### HSET / HGET
+
+Set or get a hash field.
+
+```bash
+HSET key field value [field value ...]
+HGET key field
+```
+
+**Example:**
+```bash
+HSET user:1 name "John" email "john@example.com" age "30"
+# Returns: 3 (fields added)
+
+HGET user:1 name
+# Returns: "John"
+```
+
+### HMGET / HGETALL
+
+Get multiple or all hash fields.
+
+```bash
+HMGET key field [field ...]
+HGETALL key
+```
+
+**Example:**
+```bash
+HMGET user:1 name email
+# Returns: ["John", "john@example.com"]
+
+HGETALL user:1
+# Returns: {"name": "John", "email": "john@example.com", "age": "30"}
+```
+
+### HDEL
+
+Delete hash fields.
+
+```bash
+HDEL key field [field ...]
+```
+
+**Example:**
+```bash
+HDEL user:1 age
+# Returns: 1 (fields removed)
+```
+
+### HEXISTS / HLEN
+
+Check field existence or count fields.
+
+```bash
+HEXISTS key field
+HLEN key
+```
+
+**Example:**
+```bash
+HEXISTS user:1 email
+# Returns: 1 (exists)
+
+HLEN user:1
+# Returns: 2
+```
+
+### HINCRBY / HINCRBYFLOAT
+
+Increment a hash field value.
+
+```bash
+HINCRBY key field increment
+HINCRBYFLOAT key field increment
+```
+
+**Example:**
+```bash
+HSET product:1 views 100 price 19.99
+HINCRBY product:1 views 1
+# Returns: 101
+
+HINCRBYFLOAT product:1 price -5.00
+# Returns: "14.99"
+```
+
+### HKEYS / HVALS
+
+Get all field names or values.
+
+```bash
+HKEYS key
+HVALS key
+```
+
+**Example:**
+```bash
+HKEYS user:1
+# Returns: ["name", "email"]
+
+HVALS user:1
+# Returns: ["John", "john@example.com"]
+```
+
+### HSCAN
+
+Incrementally iterate hash fields.
+
+```bash
+HSCAN key cursor [MATCH pattern] [COUNT count]
+```
+
+**Example:**
+```bash
+HSCAN user:1 0 MATCH "e*" COUNT 10
+# Returns: [0, ["email", "john@example.com"]]
+```
+
+---
+
+## List Commands
+
+List commands operate on ordered lists of strings.
+
+### LPUSH / RPUSH
+
+Add elements to the head or tail of a list.
+
+```bash
+LPUSH key element [element ...]
+RPUSH key element [element ...]
+```
+
+**Example:**
+```bash
+RPUSH tasks "task1" "task2" "task3"
+# Returns: 3 (list length)
+
+LPUSH tasks "task0"
+# Returns: 4
+```
+
+### LPOP / RPOP
+
+Remove and return elements from the head or tail.
+
+```bash
+LPOP key [count]
+RPOP key [count]
+```
+
+**Example:**
+```bash
+LPOP tasks
+# Returns: "task0"
+
+RPOP tasks 2
+# Returns: ["task3", "task2"]
+```
+
+### LRANGE
+
+Get a range of elements.
+
+```bash
+LRANGE key start stop
+```
+
+**Example:**
+```bash
+RPUSH mylist "a" "b" "c" "d" "e"
+LRANGE mylist 0 2
+# Returns: ["a", "b", "c"]
+
+LRANGE mylist -3 -1
+# Returns: ["c", "d", "e"]
+
+LRANGE mylist 0 -1
+# Returns: ["a", "b", "c", "d", "e"] (all elements)
+```
+
+### LLEN
+
+Get list length.
+
+```bash
+LLEN key
+```
+
+**Example:**
+```bash
+LLEN mylist
+# Returns: 5
+```
+
+### LINDEX / LSET
+
+Get or set an element by index.
+
+```bash
+LINDEX key index
+LSET key index element
+```
+
+**Example:**
+```bash
+LINDEX mylist 2
+# Returns: "c"
+
+LSET mylist 2 "C"
+# Returns: "OK"
+```
+
+### LINSERT
+
+Insert an element before or after a pivot.
+
+```bash
+LINSERT key BEFORE|AFTER pivot element
+```
+
+**Example:**
+```bash
+LINSERT mylist BEFORE "C" "b2"
+# Returns: 6 (new length)
+```
+
+### LREM / LTRIM
+
+Remove elements or trim a list.
+
+```bash
+LREM key count element
+LTRIM key start stop
+```
+
+**Example:**
+```bash
+RPUSH mylist "a" "b" "a" "c" "a"
+LREM mylist 2 "a"
+# Returns: 2 (removed count)
+
+LTRIM mylist 0 1
+# Returns: "OK" (keeps first 2 elements)
+```
+
+---
+
+## Set Commands
+
+Set commands operate on unordered collections of unique strings.
+
+### SADD / SREM
+
+Add or remove members.
+
+```bash
+SADD key member [member ...]
+SREM key member [member ...]
+```
+
+**Example:**
+```bash
+SADD tags "redis" "database" "nosql"
+# Returns: 3 (members added)
+
+SREM tags "nosql"
+# Returns: 1 (members removed)
+```
+
+### SMEMBERS / SISMEMBER
+
+Get all members or check membership.
+
+```bash
+SMEMBERS key
+SISMEMBER key member
+SMISMEMBER key member [member ...]
+```
+
+**Example:**
+```bash
+SMEMBERS tags
+# Returns: ["redis", "database"]
+
+SISMEMBER tags "redis"
+# Returns: 1 (true)
+
+SMISMEMBER tags "redis" "mysql"
+# Returns: [1, 0]
+```
+
+### SCARD
+
+Get set cardinality (size).
+
+```bash
+SCARD key
+```
+
+**Example:**
+```bash
+SCARD tags
+# Returns: 2
+```
+
+### SPOP / SRANDMEMBER
+
+Remove and return or just return random members.
+
+```bash
+SPOP key [count]
+SRANDMEMBER key [count]
+```
+
+**Example:**
+```bash
+SRANDMEMBER tags 1
+# Returns: ["redis"] (random, not removed)
+
+SPOP tags 1
+# Returns: ["database"] (random, removed)
+```
+
+### SDIFF / SINTER / SUNION
+
+Set difference, intersection, and union.
+
+```bash
+SDIFF key [key ...]
+SINTER key [key ...]
+SUNION key [key ...]
+```
+
+**Example:**
+```bash
+SADD set1 "a" "b" "c"
+SADD set2 "b" "c" "d"
+
+SDIFF set1 set2
+# Returns: ["a"]
+
+SINTER set1 set2
+# Returns: ["b", "c"]
+
+SUNION set1 set2
+# Returns: ["a", "b", "c", "d"]
+```
+
+### SDIFFSTORE / SINTERSTORE / SUNIONSTORE
+
+Store set operations in a new key.
+
+```bash
+SDIFFSTORE destination key [key ...]
+SINTERSTORE destination key [key ...]
+SUNIONSTORE destination key [key ...]
+```
+
+**Example:**
+```bash
+SUNIONSTORE all_items set1 set2
+# Returns: 4 (cardinality of result)
+```
+
+---
+
+## Sorted Set Commands
+
+Sorted set commands operate on sets where each member has an associated score.
+
+### ZADD
+
+Add members with scores.
+
+```bash
+ZADD key [NX|XX] [GT|LT] [CH] score member [score member ...]
+```
+
+**Options:**
+- `NX` - Only add new members
+- `XX` - Only update existing members
+- `GT` - Only update if new score > current
+- `LT` - Only update if new score < current
+- `CH` - Return changed count instead of added
+
+**Example:**
+```bash
+ZADD leaderboard 100 "player1" 200 "player2" 150 "player3"
+# Returns: 3 (members added)
+
+ZADD leaderboard XX GT 250 "player1"
+# Returns: 0 (updated, not added)
+```
+
+### ZSCORE / ZRANK / ZREVRANK
+
+Get score or rank of a member.
+
+```bash
+ZSCORE key member
+ZRANK key member
+ZREVRANK key member
+```
+
+**Example:**
+```bash
+ZSCORE leaderboard "player1"
+# Returns: "250"
+
+ZRANK leaderboard "player1"
+# Returns: 2 (0-indexed, ascending)
+
+ZREVRANK leaderboard "player1"
+# Returns: 0 (top rank, descending)
+```
+
+### ZRANGE / ZREVRANGE
+
+Get members by rank range.
+
+```bash
+ZRANGE key start stop [WITHSCORES]
+ZREVRANGE key start stop [WITHSCORES]
+```
+
+**Example:**
+```bash
+ZRANGE leaderboard 0 -1 WITHSCORES
+# Returns: ["player2", "200", "player3", "150", "player1", "250"]
+
+ZREVRANGE leaderboard 0 2
+# Returns: ["player1", "player2", "player3"]
+```
+
+### ZRANGEBYSCORE / ZREVRANGEBYSCORE
+
+Get members by score range.
+
+```bash
+ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+ZREVRANGEBYSCORE key max min [WITHSCORES] [LIMIT offset count]
+```
+
+**Example:**
+```bash
+ZRANGEBYSCORE leaderboard 100 200 WITHSCORES
+# Returns: ["player3", "150", "player2", "200"]
+
+ZRANGEBYSCORE leaderboard -inf +inf LIMIT 0 2
+# Returns: ["player3", "player2"]
+```
+
+### ZCARD / ZCOUNT
+
+Get cardinality or count by score range.
+
+```bash
+ZCARD key
+ZCOUNT key min max
+```
+
+**Example:**
+```bash
+ZCARD leaderboard
+# Returns: 3
+
+ZCOUNT leaderboard 100 200
+# Returns: 2
+```
+
+### ZINCRBY
+
+Increment a member's score.
+
+```bash
+ZINCRBY key increment member
+```
+
+**Example:**
+```bash
+ZINCRBY leaderboard 50 "player3"
+# Returns: "200"
+```
+
+### ZREM / ZREMRANGEBYRANK / ZREMRANGEBYSCORE
+
+Remove members.
+
+```bash
+ZREM key member [member ...]
+ZREMRANGEBYRANK key start stop
+ZREMRANGEBYSCORE key min max
+```
+
+**Example:**
+```bash
+ZREM leaderboard "player2"
+# Returns: 1
+
+ZREMRANGEBYSCORE leaderboard 0 100
+# Returns: 0 (members removed)
+```
+
+### ZPOPMIN / ZPOPMAX
+
+Remove and return lowest or highest scoring members.
+
+```bash
+ZPOPMIN key [count]
+ZPOPMAX key [count]
+```
+
+**Example:**
+```bash
+ZPOPMAX leaderboard 1
+# Returns: [{"member": "player1", "score": 250}]
+```
+
+---
+
+## Key Commands
+
+Key commands operate on keys regardless of their data type.
+
+### DEL / UNLINK
+
+Delete keys.
+
+```bash
+DEL key [key ...]
+UNLINK key [key ...]
+```
+
+**Example:**
+```bash
+DEL key1 key2 key3
+# Returns: 2 (keys deleted)
+```
+
+### EXISTS
+
+Check if keys exist.
+
+```bash
+EXISTS key [key ...]
+```
+
+**Example:**
+```bash
+EXISTS key1 key2
+# Returns: 1 (count of existing keys)
+```
+
+### EXPIRE / EXPIREAT / PEXPIRE / PEXPIREAT
+
+Set key expiration.
+
+```bash
+EXPIRE key seconds
+EXPIREAT key timestamp
+PEXPIRE key milliseconds
+PEXPIREAT key timestamp
+```
+
+**Example:**
+```bash
+EXPIRE session 3600
+# Returns: 1 (success)
+
+EXPIREAT session 1735689600
+# Returns: 1
+```
+
+### TTL / PTTL
+
+Get remaining time to live.
+
+```bash
+TTL key
+PTTL key
+```
+
+**Returns:**
+- `-2` if key does not exist
+- `-1` if key has no expiration
+- Positive value: seconds/milliseconds remaining
+
+**Example:**
+```bash
+TTL session
+# Returns: 3595
+
+PTTL session
+# Returns: 3595000
+```
+
+### PERSIST
+
+Remove expiration from a key.
+
+```bash
+PERSIST key
+```
+
+**Example:**
+```bash
+PERSIST session
+# Returns: 1 (success)
+```
+
+### TYPE
+
+Get the data type of a key.
+
+```bash
+TYPE key
+```
+
+**Returns:** `string`, `hash`, `list`, `set`, `zset`, `stream`, or `none`
+
+**Example:**
+```bash
+TYPE mylist
+# Returns: "list"
+```
+
+### KEYS
+
+Find keys matching a pattern.
+
+```bash
+KEYS pattern
+```
+
+<Callout type="warning">
+Use SCAN in production for large keyspaces. KEYS blocks and queries all 256 shards.
+</Callout>
+
+**Example:**
+```bash
+KEYS user:*
+# Returns: ["user:1", "user:2", "user:3"]
+
+KEYS *session*
+# Returns: ["session:abc", "user:session:1"]
+```
+
+### SCAN
+
+Incrementally iterate keys.
+
+```bash
+SCAN cursor [MATCH pattern] [COUNT count] [TYPE type]
+```
+
+**Example:**
+```bash
+SCAN 0 MATCH user:* COUNT 100
+# Returns: [42, ["user:1", "user:2", ...]]
+
+SCAN 42 MATCH user:* COUNT 100
+# Returns: [0, ["user:99", "user:100"]] (0 = iteration complete)
+```
+
+### RENAME / RENAMENX
+
+Rename a key.
+
+```bash
+RENAME key newkey
+RENAMENX key newkey
+```
+
+**Example:**
+```bash
+RENAME old_key new_key
+# Returns: "OK"
+
+RENAMENX existing_key another_existing_key
+# Returns: 0 (target exists)
+```
+
+---
+
+## Pub/Sub Commands
+
+Pub/Sub commands enable real-time messaging between clients.
+
+### PUBLISH
+
+Publish a message to a channel.
+
+```bash
+PUBLISH channel message
+```
+
+**Example:**
+```bash
+PUBLISH notifications "New message arrived"
+# Returns: 3 (subscribers who received the message)
+```
+
+### SUBSCRIBE / UNSUBSCRIBE
+
+Subscribe to channels.
+
+```bash
+SUBSCRIBE channel [channel ...]
+UNSUBSCRIBE [channel [channel ...]]
+```
+
+**Example (WebSocket):**
+```javascript
+const ws = new WebSocket('wss://your-worker.workers.dev/pubsub')
+
+// Subscribe
+ws.send(JSON.stringify({
+  action: 'subscribe',
+  channels: ['notifications', 'updates']
+}))
+
+// Receive messages
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data)
+  console.log(data.channel, data.message)
+}
+```
+
+### PSUBSCRIBE / PUNSUBSCRIBE
+
+Subscribe to channels matching a pattern.
+
+```bash
+PSUBSCRIBE pattern [pattern ...]
+PUNSUBSCRIBE [pattern [pattern ...]]
+```
+
+**Example:**
+```javascript
+ws.send(JSON.stringify({
+  action: 'psubscribe',
+  patterns: ['user:*', 'event:*']
+}))
+```
+
+---
+
+## Server Commands
+
+### PING
+
+Test connectivity.
+
+```bash
+PING [message]
+```
+
+**Example:**
+```bash
+PING
+# Returns: "PONG"
+
+PING "hello"
+# Returns: "hello"
+```
+
+### ECHO
+
+Echo a message.
+
+```bash
+ECHO message
+```
+
+**Example:**
+```bash
+ECHO "Hello"
+# Returns: "Hello"
+```
+
+### DBSIZE
+
+Get the number of keys.
+
+```bash
+DBSIZE
+```
+
+**Example:**
+```bash
+DBSIZE
+# Returns: 1523
+```
+
+### FLUSHDB / FLUSHALL
+
+Delete all keys.
+
+```bash
+FLUSHDB
+FLUSHALL
+```
+
+<Callout type="error">
+These are destructive operations that permanently delete all data across all shards.
+</Callout>
+
+**Example:**
+```bash
+FLUSHDB
+# Returns: "OK"
+```
+
+### INFO
+
+Get server information.
+
+```bash
+INFO [section]
+```
+
+**Example:**
+```bash
+INFO
+# Returns server statistics
+```
+
+### TIME
+
+Get server time.
+
+```bash
+TIME
+```
+
+**Example:**
+```bash
+TIME
+# Returns: ["1704067200", "123456"]
+```
+
+---
+
+## Commands Not Yet Supported
+
+The following commands are not yet implemented:
+
+### Blocking Commands
+- `BLPOP`, `BRPOP` - Blocking list pop
+- `BLMOVE` - Blocking list move
+- `BZPOPMIN`, `BZPOPMAX` - Blocking sorted set pop
+- `BRPOPLPUSH` - Blocking pop and push
+
+### Cluster Commands
+- `CLUSTER *` - Cluster management commands
+
+### ACL Commands
+- `ACL *` - Access Control List commands
+
+### Replication Commands
+- `REPLICAOF`, `SLAVEOF` - Replication commands
+
+### Scripting (Partial)
+- `FUNCTION *` - Redis Functions (planned)
+
+### Other
+- `WAIT` - Wait for replication
+- `OBJECT ENCODING` - Get encoding
+- `DEBUG *` - Debug commands

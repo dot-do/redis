@@ -1,0 +1,683 @@
+---
+title: Client Library Documentation
+description: JavaScript/TypeScript client library for Redois with ioredis-compatible API and pipeline support.
+---
+
+# Client Library Documentation
+
+Redois provides a JavaScript/TypeScript client library with an API compatible with ioredis. This allows you to use familiar Redis patterns while connecting to your Redois deployment.
+
+<Callout type="info">
+The Redois client uses HTTP under the hood, not TCP. This means no connection pooling is required, and the client is fully stateless and safe to use in serverless environments.
+</Callout>
+
+## Installation
+
+```bash
+npm install redois
+```
+
+Or with other package managers:
+
+```bash
+# Yarn
+yarn add redois
+
+# pnpm
+pnpm add redois
+
+# Bun
+bun add redois
+```
+
+## Basic Usage
+
+### Creating a Client
+
+```typescript
+import { Redis } from 'redois/client'
+
+const redis = new Redis({
+  url: 'https://your-worker.workers.dev',
+  token: 'your-auth-token', // optional
+})
+```
+
+### Configuration Options
+
+```typescript
+interface RedisOptions {
+  // Required: URL of your Redois deployment
+  url: string
+
+  // Optional: Authentication token
+  token?: string
+
+  // Optional: Enable automatic command pipelining
+  enableAutoPipelining?: boolean
+}
+```
+
+### Environment-Based Configuration
+
+```typescript
+const redis = new Redis({
+  url: process.env.REDOIS_URL!,
+  token: process.env.REDOIS_TOKEN,
+})
+```
+
+## String Operations
+
+### GET and SET
+
+```typescript
+// Simple set
+await redis.set('key', 'value')
+
+// Set with expiration (seconds)
+await redis.set('session', 'data', 'EX', 3600)
+
+// Set with expiration (milliseconds)
+await redis.set('session', 'data', 'PX', 3600000)
+
+// Set only if not exists
+await redis.set('lock', 'owner', 'NX')
+
+// Set only if exists
+await redis.set('key', 'newvalue', 'XX')
+
+// Get value
+const value = await redis.get('key')
+console.log(value) // "value" or null
+```
+
+### Multiple Keys
+
+```typescript
+// Set multiple keys
+await redis.mset('key1', 'value1', 'key2', 'value2')
+
+// Get multiple keys
+const values = await redis.mget('key1', 'key2', 'key3')
+console.log(values) // ["value1", "value2", null]
+```
+
+### Increment/Decrement
+
+```typescript
+await redis.set('counter', '10')
+
+const newValue = await redis.incr('counter')
+console.log(newValue) // 11
+
+const incremented = await redis.incrby('counter', 5)
+console.log(incremented) // 16
+
+const decremented = await redis.decrby('counter', 3)
+console.log(decremented) // 13
+
+// Float increment
+await redis.set('price', '10.50')
+const newPrice = await redis.incrbyfloat('price', 2.25)
+console.log(newPrice) // "12.75"
+```
+
+### String Manipulation
+
+```typescript
+// Append
+await redis.set('greeting', 'Hello')
+const length = await redis.append('greeting', ' World')
+console.log(length) // 11
+
+// Get length
+const len = await redis.strlen('greeting')
+console.log(len) // 11
+
+// Get substring
+const sub = await redis.getrange('greeting', 0, 4)
+console.log(sub) // "Hello"
+
+// Set substring
+await redis.setrange('greeting', 6, 'Redis')
+const result = await redis.get('greeting')
+console.log(result) // "Hello Redis"
+```
+
+## Hash Operations
+
+### Basic Hash Commands
+
+```typescript
+// Set hash fields
+await redis.hset('user:1', 'name', 'John', 'email', 'john@example.com')
+
+// Or with an object
+await redis.hset('user:1', {
+  name: 'John',
+  email: 'john@example.com',
+  age: '30'
+})
+
+// Get single field
+const name = await redis.hget('user:1', 'name')
+console.log(name) // "John"
+
+// Get multiple fields
+const fields = await redis.hmget('user:1', 'name', 'email')
+console.log(fields) // ["John", "john@example.com"]
+
+// Get all fields
+const user = await redis.hgetall('user:1')
+console.log(user) // { name: "John", email: "john@example.com", age: "30" }
+```
+
+### Hash Utilities
+
+```typescript
+// Check field existence
+const exists = await redis.hexists('user:1', 'email')
+console.log(exists) // 1
+
+// Get all field names
+const keys = await redis.hkeys('user:1')
+console.log(keys) // ["name", "email", "age"]
+
+// Get all values
+const values = await redis.hvals('user:1')
+console.log(values) // ["John", "john@example.com", "30"]
+
+// Get number of fields
+const len = await redis.hlen('user:1')
+console.log(len) // 3
+
+// Delete fields
+const deleted = await redis.hdel('user:1', 'age')
+console.log(deleted) // 1
+
+// Increment field
+await redis.hset('user:1', 'views', '0')
+const views = await redis.hincrby('user:1', 'views', 1)
+console.log(views) // 1
+```
+
+## List Operations
+
+### Push and Pop
+
+```typescript
+// Push to head (left)
+const len1 = await redis.lpush('queue', 'item1', 'item2')
+console.log(len1) // 2
+
+// Push to tail (right)
+const len2 = await redis.rpush('queue', 'item3', 'item4')
+console.log(len2) // 4
+
+// Pop from head
+const first = await redis.lpop('queue')
+console.log(first) // "item2"
+
+// Pop from tail
+const last = await redis.rpop('queue')
+console.log(last) // "item4"
+
+// Pop multiple
+const items = await redis.lpop('queue', 2)
+console.log(items) // ["item1", "item3"]
+```
+
+### List Access
+
+```typescript
+await redis.rpush('mylist', 'a', 'b', 'c', 'd', 'e')
+
+// Get range (0-indexed, inclusive)
+const range = await redis.lrange('mylist', 0, 2)
+console.log(range) // ["a", "b", "c"]
+
+// Get all elements
+const all = await redis.lrange('mylist', 0, -1)
+console.log(all) // ["a", "b", "c", "d", "e"]
+
+// Get by index
+const item = await redis.lindex('mylist', 2)
+console.log(item) // "c"
+
+// Get length
+const len = await redis.llen('mylist')
+console.log(len) // 5
+
+// Set by index
+await redis.lset('mylist', 2, 'C')
+```
+
+### List Manipulation
+
+```typescript
+// Insert before/after
+await redis.linsert('mylist', 'BEFORE', 'C', 'b2')
+await redis.linsert('mylist', 'AFTER', 'C', 'c2')
+
+// Remove elements
+const removed = await redis.lrem('mylist', 1, 'b2')
+console.log(removed) // 1
+
+// Trim list
+await redis.ltrim('mylist', 0, 2)
+```
+
+## Set Operations
+
+### Basic Set Commands
+
+```typescript
+// Add members
+const added = await redis.sadd('tags', 'redis', 'database', 'nosql')
+console.log(added) // 3
+
+// Check membership
+const isMember = await redis.sismember('tags', 'redis')
+console.log(isMember) // 1
+
+// Get all members
+const members = await redis.smembers('tags')
+console.log(members) // ["redis", "database", "nosql"]
+
+// Get cardinality
+const size = await redis.scard('tags')
+console.log(size) // 3
+
+// Remove members
+const removed = await redis.srem('tags', 'nosql')
+console.log(removed) // 1
+```
+
+### Set Operations
+
+```typescript
+await redis.sadd('set1', 'a', 'b', 'c')
+await redis.sadd('set2', 'b', 'c', 'd')
+
+// Difference
+const diff = await redis.sdiff('set1', 'set2')
+console.log(diff) // ["a"]
+
+// Intersection
+const inter = await redis.sinter('set1', 'set2')
+console.log(inter) // ["b", "c"]
+
+// Union
+const union = await redis.sunion('set1', 'set2')
+console.log(union) // ["a", "b", "c", "d"]
+
+// Store results
+await redis.sunionstore('all', 'set1', 'set2')
+await redis.sinterstore('common', 'set1', 'set2')
+```
+
+### Random Members
+
+```typescript
+// Get random member (without removing)
+const random = await redis.srandmember('tags')
+console.log(random) // "database" (random)
+
+// Get multiple random members
+const randoms = await redis.srandmember('tags', 2)
+console.log(randoms) // ["redis", "database"] (random)
+
+// Pop random member (removes it)
+const popped = await redis.spop('tags')
+console.log(popped) // "redis" (random, now removed)
+```
+
+## Sorted Set Operations
+
+### Adding Members
+
+```typescript
+// Add with scores
+const added = await redis.zadd('leaderboard', 100, 'player1', 200, 'player2', 150, 'player3')
+console.log(added) // 3
+
+// Add with options
+await redis.zadd('leaderboard', 'NX', 300, 'player4') // Only add new
+await redis.zadd('leaderboard', 'XX', 250, 'player1') // Only update existing
+await redis.zadd('leaderboard', 'GT', 300, 'player1') // Update only if new > current
+```
+
+### Querying
+
+```typescript
+// Get score
+const score = await redis.zscore('leaderboard', 'player1')
+console.log(score) // "250"
+
+// Get rank (0-indexed, ascending)
+const rank = await redis.zrank('leaderboard', 'player1')
+console.log(rank) // 1
+
+// Get rank (descending)
+const revRank = await redis.zrevrank('leaderboard', 'player1')
+console.log(revRank) // 2
+
+// Get range by rank
+const range = await redis.zrange('leaderboard', 0, 2)
+console.log(range) // ["player3", "player1", "player2"]
+
+// Get range with scores
+const rangeWithScores = await redis.zrange('leaderboard', 0, -1, 'WITHSCORES')
+console.log(rangeWithScores) // ["player3", "150", "player1", "250", "player2", "200"]
+
+// Get range by score
+const byScore = await redis.zrangebyscore('leaderboard', 100, 200)
+console.log(byScore) // ["player3", "player2"]
+```
+
+### Modifying
+
+```typescript
+// Increment score
+const newScore = await redis.zincrby('leaderboard', 50, 'player3')
+console.log(newScore) // "200"
+
+// Remove members
+const removed = await redis.zrem('leaderboard', 'player4')
+console.log(removed) // 1
+
+// Remove by rank range
+await redis.zremrangebyrank('leaderboard', 0, 0) // Remove lowest
+
+// Remove by score range
+await redis.zremrangebyscore('leaderboard', 0, 100) // Remove scores 0-100
+
+// Pop highest/lowest
+const highest = await redis.zpopmax('leaderboard', 1)
+console.log(highest) // [{ member: "player1", score: 250 }]
+```
+
+## Key Operations
+
+### Key Management
+
+```typescript
+// Check existence
+const exists = await redis.exists('key1', 'key2', 'key3')
+console.log(exists) // 2 (number of existing keys)
+
+// Delete keys
+const deleted = await redis.del('key1', 'key2')
+console.log(deleted) // 2 (number of deleted keys)
+
+// Get type
+const type = await redis.type('mylist')
+console.log(type) // "list"
+
+// Rename
+await redis.rename('oldkey', 'newkey')
+
+// Rename only if target doesn't exist
+const renamed = await redis.renamenx('key1', 'key2')
+console.log(renamed) // 1 if renamed, 0 if target exists
+```
+
+### TTL Management
+
+```typescript
+// Set expiration
+await redis.set('session', 'data')
+await redis.expire('session', 3600) // 1 hour
+
+// Set expiration at timestamp
+await redis.expireat('session', Math.floor(Date.now() / 1000) + 3600)
+
+// Get TTL
+const ttl = await redis.ttl('session')
+console.log(ttl) // seconds remaining, -1 if no expiry, -2 if not exists
+
+// Get TTL in milliseconds
+const pttl = await redis.pttl('session')
+console.log(pttl) // milliseconds remaining
+
+// Remove expiration
+await redis.persist('session')
+```
+
+### Key Discovery
+
+```typescript
+// Find keys by pattern (use sparingly in production)
+const userKeys = await redis.keys('user:*')
+console.log(userKeys) // ["user:1", "user:2", ...]
+
+// Scan keys (preferred for large datasets)
+let cursor = 0
+const allKeys: string[] = []
+
+do {
+  const [newCursor, keys] = await redis.scan(cursor, 'MATCH', 'user:*', 'COUNT', 100)
+  cursor = parseInt(newCursor, 10)
+  allKeys.push(...keys)
+} while (cursor !== 0)
+
+console.log(allKeys)
+```
+
+## Pipeline Support
+
+Pipelines allow batching multiple commands for efficient execution.
+
+### Creating a Pipeline
+
+```typescript
+const pipeline = redis.pipeline()
+
+// Queue commands
+pipeline.set('key1', 'value1')
+pipeline.set('key2', 'value2')
+pipeline.get('key1')
+pipeline.incr('counter')
+
+// Execute all commands
+const results = await pipeline.exec()
+console.log(results)
+// [
+//   [null, "OK"],
+//   [null, "OK"],
+//   [null, "value1"],
+//   [null, 1]
+// ]
+```
+
+### Pipeline Result Format
+
+Each result is a tuple of `[error, value]`:
+
+```typescript
+const results = await pipeline.exec()
+
+for (const [error, value] of results) {
+  if (error) {
+    console.error('Command failed:', error)
+  } else {
+    console.log('Result:', value)
+  }
+}
+```
+
+### Chaining Commands
+
+All pipeline methods return `this` for chaining:
+
+```typescript
+const results = await redis.pipeline()
+  .set('user:1:name', 'John')
+  .set('user:1:email', 'john@example.com')
+  .hset('user:1:profile', 'age', '30')
+  .lpush('user:1:history', 'login')
+  .expire('user:1:session', 3600)
+  .exec()
+```
+
+### Supported Pipeline Commands
+
+The Pipeline class supports all major Redis commands:
+
+**String:** `get`, `set`, `mget`, `mset`, `incr`, `decr`, `incrby`, `decrby`, `append`, `strlen`
+
+**Hash:** `hget`, `hset`, `hmget`, `hgetall`, `hdel`, `hexists`, `hkeys`, `hvals`, `hlen`, `hincrby`
+
+**List:** `lpush`, `rpush`, `lpop`, `rpop`, `lrange`, `llen`, `lindex`, `lset`, `lrem`, `ltrim`
+
+**Set:** `sadd`, `srem`, `smembers`, `sismember`, `scard`, `spop`, `sdiff`, `sinter`, `sunion`
+
+**Sorted Set:** `zadd`, `zrem`, `zscore`, `zrank`, `zrange`, `zrangebyscore`, `zcard`, `zincrby`
+
+**Key:** `del`, `exists`, `expire`, `ttl`, `type`, `keys`, `scan`, `rename`, `persist`
+
+**Server:** `ping`, `echo`, `dbsize`, `flushdb`, `info`, `time`
+
+## TypeScript Support
+
+Redois is written in TypeScript and provides full type definitions.
+
+### Type Imports
+
+```typescript
+import type {
+  RedisOptions,
+  SetOptions,
+  ScanOptions,
+  ZAddOptions,
+  ZRangeOptions,
+} from 'redois'
+```
+
+### Generic Response Types
+
+```typescript
+// String operations return string | null
+const value: string | null = await redis.get('key')
+
+// Numeric operations return number
+const count: number = await redis.incr('counter')
+
+// Hash getall returns Record<string, string>
+const hash: Record<string, string> = await redis.hgetall('user:1')
+
+// List/Set operations return string[]
+const members: string[] = await redis.smembers('tags')
+
+// Existence checks return 0 | 1
+const exists: 0 | 1 = await redis.exists('key')
+```
+
+### Custom Type Helpers
+
+```typescript
+// Type-safe hash operations
+interface User {
+  name: string
+  email: string
+  age: string
+}
+
+async function getUser(id: string): Promise<User | null> {
+  const data = await redis.hgetall(`user:${id}`)
+  if (Object.keys(data).length === 0) return null
+  return data as User
+}
+
+async function setUser(id: string, user: User): Promise<void> {
+  await redis.hset(`user:${id}`, user)
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  await redis.get('key')
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Redis error:', error.message)
+  }
+}
+
+// With async/await pattern
+const result = await redis.get('key').catch(err => {
+  console.error('Failed to get key:', err)
+  return null
+})
+```
+
+## Connection Management
+
+The Redois client is stateless and uses HTTP for each request. There's no need to manage connections or implement reconnection logic.
+
+```typescript
+// Client can be reused across requests
+const redis = new Redis({ url: '...' })
+
+// No need to close connections
+// No connection pooling required
+// Each request is independent
+```
+
+## Best Practices
+
+<Callout type="warning">
+While Redois is compatible with ioredis API patterns, some advanced features like transactions (MULTI/EXEC) and Lua scripting (EVAL) are not yet supported. Use pipelining for batch operations instead.
+</Callout>
+
+### Use Pipelines for Batch Operations
+
+```typescript
+// Bad: Multiple round trips
+await redis.set('key1', 'value1')
+await redis.set('key2', 'value2')
+await redis.set('key3', 'value3')
+
+// Good: Single round trip
+await redis.pipeline()
+  .set('key1', 'value1')
+  .set('key2', 'value2')
+  .set('key3', 'value3')
+  .exec()
+```
+
+### Use SCAN Instead of KEYS
+
+```typescript
+// Bad: Blocks and returns all keys
+const allKeys = await redis.keys('*')
+
+// Good: Iterates without blocking
+let cursor = 0
+do {
+  const [newCursor, keys] = await redis.scan(cursor, 'COUNT', 100)
+  cursor = parseInt(newCursor, 10)
+  // Process keys...
+} while (cursor !== 0)
+```
+
+### Set Appropriate TTLs
+
+```typescript
+// Always set TTLs for temporary data
+await redis.set('session:abc', data, 'EX', 3600)
+await redis.set('cache:query:123', result, 'EX', 300)
+```
+
+### Use Appropriate Data Structures
+
+```typescript
+// Use hashes for objects instead of JSON strings
+// Bad
+await redis.set('user:1', JSON.stringify({ name: 'John', email: 'john@example.com' }))
+
+// Good
+await redis.hset('user:1', { name: 'John', email: 'john@example.com' })
+```
