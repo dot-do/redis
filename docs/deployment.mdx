@@ -1,15 +1,15 @@
 ---
 title: Cloudflare Deployment Guide
-description: Complete guide to deploying Redois on Cloudflare Workers with wrangler.jsonc configuration, environments, secrets, and production best practices.
+description: Complete guide to deploying Redis.do on Cloudflare Workers with wrangler.jsonc configuration, environments, secrets, and production best practices.
 ---
 
 # Cloudflare Deployment Guide
 
-This guide covers everything you need to deploy Redois to Cloudflare Workers, from initial setup to production configuration.
+This guide covers everything you need to deploy Redis.do to Cloudflare Workers, from initial setup to production configuration.
 
 ## Prerequisites
 
-Before deploying Redois, ensure you have:
+Before deploying Redis.do, ensure you have:
 
 - A [Cloudflare account](https://dash.cloudflare.com/sign-up) (Free tier works for development)
 - [Node.js](https://nodejs.org/) 18.0 or later
@@ -27,12 +27,12 @@ wrangler login
 
 ### Option 1: Clone and Deploy
 
-The fastest way to deploy Redois:
+The fastest way to deploy Redis.do:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nathanclevenger/redois.git
-cd redois
+git clone https://github.com/nathanclevenger/redis.do.git
+cd redis.do
 
 # Install dependencies
 npm install
@@ -44,17 +44,17 @@ npm run deploy
 ### Option 2: Create from Template
 
 ```bash
-npx create-cloudflare@latest my-redis --template redois
+npx create-cloudflare@latest my-redis --template redis.do
 cd my-redis
 npm run deploy
 ```
 
 ### Option 3: Add to Existing Worker
 
-Install Redois as a dependency:
+Install Redis.do as a dependency:
 
 ```bash
-npm install redois
+npm install redis.do
 ```
 
 Then configure your worker (see Configuration section below).
@@ -63,12 +63,12 @@ Then configure your worker (see Configuration section below).
 
 ### wrangler.jsonc Setup
 
-The `wrangler.jsonc` file is the core configuration for your Redois deployment. Here is a complete, annotated configuration:
+The `wrangler.jsonc` file is the core configuration for your Redis.do deployment. Here is a complete, annotated configuration:
 
 ```jsonc
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "redois",
+  "name": "redis.do",
   "main": "src/worker.ts",
   "compatibility_date": "2025-01-01",
 
@@ -78,7 +78,7 @@ The `wrangler.jsonc` file is the core configuration for your Redois deployment. 
     "enable_ctx_exports"    // Required for Worker Loader (code execution)
   ],
 
-  // Durable Objects - the core of Redois
+  // Durable Objects - the core of Redis.do
   "durable_objects": {
     "bindings": [
       {
@@ -166,7 +166,7 @@ Or set them per environment:
 
 ### Setting Up AUTH_TOKEN
 
-Protect your Redois instance with bearer token authentication:
+Protect your Redis.do instance with bearer token authentication:
 
 ```bash
 # Set the secret in Cloudflare
@@ -189,7 +189,7 @@ The `.dev.vars` file should be added to `.gitignore` to prevent committing secre
 Once configured, all API requests require the Authorization header:
 
 ```bash
-curl -X POST https://your-redois.workers.dev \
+curl -X POST https://your-redis.do.workers.dev \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-token" \
   -d '["SET", "key", "value"]'
@@ -199,7 +199,7 @@ With the client library:
 
 ```typescript
 const redis = new Redis({
-  url: 'https://your-redois.workers.dev',
+  url: 'https://your-redis.do.workers.dev',
   token: 'your-token'
 })
 ```
@@ -212,24 +212,24 @@ Define multiple environments for development, staging, and production:
 
 ```jsonc
 {
-  "name": "redois",
+  "name": "redis.do",
   "main": "src/worker.ts",
 
   "env": {
     "dev": {
-      "name": "redois-dev",
+      "name": "redis.do-dev",
       "vars": {
         "ENVIRONMENT": "development"
       }
     },
     "staging": {
-      "name": "redois-staging",
+      "name": "redis.do-staging",
       "vars": {
         "ENVIRONMENT": "staging"
       }
     },
     "production": {
-      "name": "redois-production",
+      "name": "redis.do-production",
       "vars": {
         "ENVIRONMENT": "production"
       }
@@ -327,11 +327,11 @@ After deployment, verify your instance:
 
 ```bash
 # Check health
-curl https://your-redois.workers.dev/health
+curl https://your-redis.do.workers.dev/health
 # Response: {"status":"ok","version":"0.1.0"}
 
 # Test a command
-curl -X POST https://your-redois.workers.dev \
+curl -X POST https://your-redis.do.workers.dev \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-token" \
   -d '["PING"]'
@@ -433,7 +433,7 @@ Access detailed metrics in the Cloudflare dashboard:
 | Concurrent requests | Unlimited (sequential execution) |
 
 <Callout type="info">
-Redois distributes data across 256 shards, giving you an effective storage limit of 2.56TB (256 x 10GB). In practice, you will hit request limits before storage limits.
+Redis.do distributes data across 256 shards, giving you an effective storage limit of 2.56TB (256 x 10GB). In practice, you will hit request limits before storage limits.
 </Callout>
 
 ## Pricing
@@ -485,12 +485,12 @@ wrangler tail --format pretty
 
 2. **Check Durable Object status:**
 ```bash
-curl https://your-redois.workers.dev/health
+curl https://your-redis.do.workers.dev/health
 ```
 
 3. **Test individual commands:**
 ```bash
-curl -X POST https://your-redois.workers.dev \
+curl -X POST https://your-redis.do.workers.dev \
   -H "Content-Type: application/json" \
   -d '["PING"]'
 ```
@@ -499,11 +499,11 @@ curl -X POST https://your-redois.workers.dev \
 
 ### Version Upgrades
 
-To upgrade Redois:
+To upgrade Redis.do:
 
 ```bash
 # Update dependency
-npm update redois
+npm update redis.do
 
 # Rebuild and deploy
 npm run deploy

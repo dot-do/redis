@@ -1,12 +1,12 @@
 {
-  "name": "redisdo",
+  "name": "redis.do",
   "version": "0.1.1",
   "description": "100% Redis-compatible database on Cloudflare Workers, Durable Objects, and SQLite",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "redois-mcp": "./dist/mcp/cli.js"
+    "redis-do-mcp": "./dist/mcp/cli.js"
   },
   "exports": {
     ".": {

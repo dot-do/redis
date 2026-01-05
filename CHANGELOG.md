@@ -61,4 +61,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic key distribution via consistent hashing
 - Global edge deployment
 
-[0.1.0]: https://github.com/nathanclevenger/redois/releases/tag/v0.1.0
+[0.1.0]: https://github.com/nathanclevenger/redis.do/releases/tag/v0.1.0

@@ -1,5 +1,5 @@
 /**
- * Redois MCP (Model Context Protocol) Module
+ * Redis.do MCP (Model Context Protocol) Module
  *
  * Provides MCP server implementation with Redis tools, HTTP/SSE transport,
  * and sandboxed code execution capabilities.

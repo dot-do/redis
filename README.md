@@ -1,8 +1,8 @@
-# Redois
+# Redis.do
 
 <!-- TODO: Add logo/banner -->
 <!-- <p align="center">
-  <img src="./assets/logo.svg" alt="Redois Logo" width="200" />
+  <img src="./assets/logo.svg" alt="Redis.do Logo" width="200" />
 </p> -->
 
 <p align="center">
@@ -10,14 +10,14 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/redois"><img src="https://img.shields.io/npm/v/redois.svg" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/redois"><img src="https://img.shields.io/npm/dm/redois.svg" alt="npm downloads" /></a>
-  <a href="https://github.com/nathanclevenger/redois/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/redois.svg" alt="license" /></a>
+  <a href="https://www.npmjs.com/package/redis.do"><img src="https://img.shields.io/npm/v/redis.do.svg" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/redis.do"><img src="https://img.shields.io/npm/dm/redis.do.svg" alt="npm downloads" /></a>
+  <a href="https://github.com/dot-do/redois/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/redis.do.svg" alt="license" /></a>
 </p>
 
 ---
 
-Redois is a fully Redis-compatible database built on Cloudflare Workers, Durable Objects, and SQLite. Deploy your own Redis instance at the edge with zero operational overhead.
+Redis.do is a fully Redis-compatible database built on Cloudflare Workers, Durable Objects, and SQLite. Deploy your own Redis instance at the edge with zero operational overhead.
 
 ## Features
 
@@ -53,16 +53,16 @@ Redois is a fully Redis-compatible database built on Cloudflare Workers, Durable
 ### 1. Install
 
 ```bash
-npm install redois
+npm install redis.do
 ```
 
 ### 2. Deploy to Cloudflare
 
-Clone and deploy your own Redois instance:
+Clone and deploy your own Redis.do instance:
 
 ```bash
-git clone https://github.com/nathanclevenger/redois.git
-cd redois
+git clone https://github.com/dot-do/redois.git
+cd redis.do
 npm install
 npm run deploy
 ```
@@ -70,10 +70,10 @@ npm run deploy
 ### 3. Connect
 
 ```typescript
-import { Redis } from 'redois/client'
+import { Redis } from 'redis.do/client'
 
 const redis = new Redis({
-  url: 'https://your-redois.workers.dev',
+  url: 'https://your-redis.do.workers.dev',
   token: 'your-auth-token' // optional
 })
 
@@ -86,13 +86,13 @@ const value = await redis.get('key')
 
 ```bash
 # npm
-npm install redois
+npm install redis.do
 
 # pnpm
-pnpm add redois
+pnpm add redis.do
 
 # yarn
-yarn add redois
+yarn add redis.do
 ```
 
 ## Usage
@@ -100,9 +100,9 @@ yarn add redois
 ### Basic Operations
 
 ```typescript
-import { Redis } from 'redois/client'
+import { Redis } from 'redis.do/client'
 
-const redis = new Redis({ url: 'https://your-redois.workers.dev' })
+const redis = new Redis({ url: 'https://your-redis.do.workers.dev' })
 
 // Strings
 await redis.set('name', 'Alice')
@@ -170,14 +170,14 @@ await redis.persist('mykey')
 
 ### REST API (Upstash-Compatible)
 
-Redois exposes an Upstash-compatible REST API:
+Redis.do exposes an Upstash-compatible REST API:
 
 ```bash
 # GET request
-curl https://your-redois.workers.dev/GET/mykey
+curl https://your-redis.do.workers.dev/GET/mykey
 
 # POST request with JSON array
-curl -X POST https://your-redois.workers.dev \
+curl -X POST https://your-redis.do.workers.dev \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-token" \
   -d '["SET", "mykey", "myvalue"]'
@@ -188,10 +188,10 @@ curl -X POST https://your-redois.workers.dev \
 ### Client API
 
 ```typescript
-import { Redis } from 'redois/client'
+import { Redis } from 'redis.do/client'
 
 const redis = new Redis({
-  url: string,           // Your Redois worker URL
+  url: string,           // Your Redis.do worker URL
   token?: string,        // Optional auth token
   enableAutoPipelining?: boolean  // Auto-batch commands (default: false)
 })
@@ -199,27 +199,27 @@ const redis = new Redis({
 
 ### Worker Exports
 
-When using Redois as a library in your Cloudflare Worker:
+When using Redis.do as a library in your Cloudflare Worker:
 
 ```typescript
 // Main exports
-export { RedisShard, RedisPubSub, RedisCoordinator } from 'redois'
-export { RedoisEntrypoint } from 'redois'
+export { RedisShard, RedisPubSub, RedisCoordinator } from 'redis.do'
+export { Redis.doEntrypoint } from 'redis.do'
 
 // Types
-export type { Env, SetOptions, ScanOptions, ZAddOptions, ZRangeOptions } from 'redois'
+export type { Env, SetOptions, ScanOptions, ZAddOptions, ZRangeOptions } from 'redis.do'
 ```
 
 ## MCP Integration
 
-Redois includes a built-in Model Context Protocol (MCP) server, enabling AI agents to interact with your Redis data directly.
+Redis.do includes a built-in Model Context Protocol (MCP) server, enabling AI agents to interact with your Redis data directly.
 
 ### MCP Endpoint
 
-The MCP server is available at `/mcp` on your Redois deployment:
+The MCP server is available at `/mcp` on your Redis.do deployment:
 
 ```
-https://your-redois.workers.dev/mcp
+https://your-redis.do.workers.dev/mcp
 ```
 
 ### Claude Desktop Configuration
@@ -229,11 +229,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 ```json
 {
   "mcpServers": {
-    "redois": {
+    "redis.do": {
       "command": "npx",
-      "args": ["redois-mcp"],
+      "args": ["redis.do-mcp"],
       "env": {
-        "REDOIS_URL": "https://your-redois.workers.dev",
+        "REDOIS_URL": "https://your-redis.do.workers.dev",
         "REDOIS_TOKEN": "your-auth-token"
       }
     }
@@ -284,8 +284,8 @@ return users.filter(u => u.active === 'true')
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/nathanclevenger/redois.git
-cd redois
+git clone https://github.com/dot-do/redois.git
+cd redis.do
 ```
 
 2. **Install dependencies**
@@ -324,7 +324,7 @@ Configure via `wrangler.jsonc`:
 
 ```jsonc
 {
-  "name": "redois",
+  "name": "redis.do",
   "main": "src/worker.ts",
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -343,7 +343,7 @@ Configure via `wrangler.jsonc`:
 Verify your deployment:
 
 ```bash
-curl https://your-redois.workers.dev/health
+curl https://your-redis.do.workers.dev/health
 # {"status":"ok","version":"0.1.0"}
 ```
 
@@ -360,9 +360,9 @@ curl https://your-redois.workers.dev/health
 
 ### Transaction Atomicity (MULTI/EXEC)
 
-Redois does **NOT** provide true MULTI/EXEC transaction atomicity. In standard Redis, MULTI/EXEC guarantees that all commands in a transaction are executed atomically without interleaving from other clients. Redois does not provide this guarantee.
+Redis.do does **NOT** provide true MULTI/EXEC transaction atomicity. In standard Redis, MULTI/EXEC guarantees that all commands in a transaction are executed atomically without interleaving from other clients. Redis.do does not provide this guarantee.
 
-When using `multi()` or `pipeline()` in Redois:
+When using `multi()` or `pipeline()` in Redis.do:
 
 - **Commands are batched** - Sent together for reduced network round trips
 - **Sequential execution** - Commands execute in order within the batch
@@ -387,7 +387,7 @@ const results = await multi.exec()
 ### Other Limitations
 
 - **Pub/Sub** - SUBSCRIBE is only available via WebSocket; use PUBLISH for sending messages
-- **Cluster mode** - Redois handles sharding internally; Redis Cluster commands are not supported
+- **Cluster mode** - Redis.do handles sharding internally; Redis Cluster commands are not supported
 - **Persistence** - Data is persisted to SQLite in Durable Objects, not RDB/AOF files
 - **Lua scripting** - EVAL/EVALSHA support is limited compared to standard Redis
 

@@ -1,11 +1,11 @@
 ---
 title: System Architecture
-description: Deep dive into Redois architecture including Durable Objects, sharding strategy, SQLite schema, and TTL management.
+description: Deep dive into Redis.do architecture including Durable Objects, sharding strategy, SQLite schema, and TTL management.
 ---
 
 # System Architecture
 
-Redois is built on Cloudflare's edge infrastructure, leveraging Durable Objects for consistent storage and Workers for request routing. This document explains the system architecture and design decisions.
+Redis.do is built on Cloudflare's edge infrastructure, leveraging Durable Objects for consistent storage and Workers for request routing. This document explains the system architecture and design decisions.
 
 <Callout type="info">
 Understanding the architecture helps you optimize performance, plan capacity, and troubleshoot issues in production deployments.
@@ -22,7 +22,7 @@ Understanding the architecture helps you optimize performance, plan capacity, an
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           Cloudflare Worker                                      │
-│                         (RedoisEntrypoint)                                       │
+│                         (Redis.doEntrypoint)                                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
 │  │   /health   │  │    /rpc     │  │    /mcp     │  │  REST API   │            │
 │  │   Handler   │  │   Handler   │  │   Handler   │  │  (Upstash)  │            │
@@ -50,7 +50,7 @@ Understanding the architecture helps you optimize performance, plan capacity, an
 
 ## Durable Objects
 
-Redois uses three types of Durable Objects, each with a specific responsibility.
+Redis.do uses three types of Durable Objects, each with a specific responsibility.
 
 ### RedisShard
 
@@ -157,7 +157,7 @@ The `RedisCoordinator` Durable Object manages global operations that span multip
 
 ## Sharding Strategy
 
-Redois uses a fixed 256-shard architecture with consistent hashing for key distribution.
+Redis.do uses a fixed 256-shard architecture with consistent hashing for key distribution.
 
 ### Hash Function
 
@@ -174,7 +174,7 @@ This ensures:
 
 ### Multi-Key Operations
 
-For commands that operate on multiple keys (MGET, DEL with multiple keys), Redois:
+For commands that operate on multiple keys (MGET, DEL with multiple keys), Redis.do:
 
 1. Groups keys by their target shard
 2. Executes operations in parallel across shards
@@ -293,7 +293,7 @@ CREATE INDEX IF NOT EXISTS idx_zsets_key_score ON zsets(key, score);
 
 ## TTL and Expiration
 
-Redois implements key expiration using Cloudflare's Alarms API for efficiency.
+Redis.do implements key expiration using Cloudflare's Alarms API for efficiency.
 
 ### Setting Expiration
 
@@ -381,7 +381,7 @@ async get(key: string): Promise<string | null> {
 ```
 1. Client sends: POST /SET/mykey/myvalue
 2. Worker receives request
-3. RedoisEntrypoint.fetch() parses the path
+3. Redis.doEntrypoint.fetch() parses the path
 4. handleRest() extracts command and args
 5. executeCommand() routes to SET handler
 6. getShardForKey("mykey") determines shard
@@ -395,7 +395,7 @@ async get(key: string): Promise<string | null> {
 ```
 1. Client sends: POST /rpc with JSON-RPC batch
 2. Worker receives request
-3. RedoisEntrypoint.fetch() routes to /rpc
+3. Redis.doEntrypoint.fetch() routes to /rpc
 4. handleRpc() processes batch
 5. For each command:
    a. Determine target shard
@@ -409,7 +409,7 @@ async get(key: string): Promise<string | null> {
 ```
 1. Client sends: POST /mcp with MCP message
 2. Worker receives request
-3. RedoisEntrypoint.fetch() routes to /mcp
+3. Redis.doEntrypoint.fetch() routes to /mcp
 4. handleMcp() creates/uses MCP server
 5. MCP server processes tool call
 6. Redis operations executed via createRedisAccess()

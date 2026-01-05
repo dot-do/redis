@@ -1,11 +1,11 @@
 ---
 title: MCP Integration Guide
-description: Using Redois with Model Context Protocol (MCP) for AI agent interactions, including tools, transports, and secure code execution.
+description: Using Redis.do with Model Context Protocol (MCP) for AI agent interactions, including tools, transports, and secure code execution.
 ---
 
 # MCP Integration Guide
 
-Redois includes built-in support for the Model Context Protocol (MCP), enabling AI agents to interact with your Redis data through a standardized interface. This guide covers MCP concepts, available tools, transport options, and integration with AI assistants.
+Redis.do includes built-in support for the Model Context Protocol (MCP), enabling AI agents to interact with your Redis data through a standardized interface. This guide covers MCP concepts, available tools, transport options, and integration with AI assistants.
 
 <Callout type="info">
 MCP is an open standard developed by Anthropic for connecting AI assistants to external tools and data sources. Learn more at [modelcontextprotocol.io](https://modelcontextprotocol.io).
@@ -20,11 +20,11 @@ The Model Context Protocol (MCP) is an open standard for connecting AI assistant
 - **Access resources** with proper authentication
 - **Run code** in sandboxed environments
 
-Redois implements MCP server capabilities, allowing any MCP-compatible client (like Claude Desktop) to interact with your Redis data.
+Redis.do implements MCP server capabilities, allowing any MCP-compatible client (like Claude Desktop) to interact with your Redis data.
 
 ## Available MCP Tools
 
-Redois exposes five MCP tools for Redis operations:
+Redis.do exposes five MCP tools for Redis operations:
 
 ### redis_get
 
@@ -260,7 +260,7 @@ Execute arbitrary Redis commands or JavaScript code with Redis access.
 
 ## HTTP Transport
 
-Redois exposes MCP over HTTP at the `/mcp` endpoint. This is the primary transport for web-based integrations.
+Redis.do exposes MCP over HTTP at the `/mcp` endpoint. This is the primary transport for web-based integrations.
 
 ### Endpoint
 
@@ -321,7 +321,7 @@ Before calling tools, clients should initialize:
       }
     },
     "serverInfo": {
-      "name": "redois",
+      "name": "redis.do",
       "version": "0.1.0"
     }
   }
@@ -392,24 +392,24 @@ curl -X POST https://your-worker.workers.dev/mcp \
 
 ## Stdio Transport
 
-For CLI integration, Redois provides a stdio transport via the `redois-mcp` binary.
+For CLI integration, Redis.do provides a stdio transport via the `redis.do-mcp` binary.
 
 ### Installation
 
 ```bash
-npm install -g redois
+npm install -g redis.do
 # or
-npx redois-mcp
+npx redis.do-mcp
 ```
 
 ### Usage
 
 ```bash
-# Connect to a deployed Redois instance
-redois-mcp --url https://your-worker.workers.dev --token your-auth-token
+# Connect to a deployed Redis.do instance
+redis.do-mcp --url https://your-worker.workers.dev --token your-auth-token
 
 # For local development
-redois-mcp --url http://localhost:8787
+redis.do-mcp --url http://localhost:8787
 ```
 
 ### Configuration
@@ -420,7 +420,7 @@ The CLI reads from environment variables:
 export REDOIS_URL=https://your-worker.workers.dev
 export REDOIS_TOKEN=your-auth-token
 
-redois-mcp
+redis.do-mcp
 ```
 
 ## Worker Loader Sandbox
@@ -569,7 +569,7 @@ To use the code execution feature, configure Worker Loader in your `wrangler.jso
 
 ## Claude Desktop Integration
 
-Redois can be integrated with Claude Desktop for AI-assisted Redis operations.
+Redis.do can be integrated with Claude Desktop for AI-assisted Redis operations.
 
 ### Configuration
 
@@ -578,9 +578,9 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
-    "redois": {
+    "redis.do": {
       "command": "npx",
-      "args": ["redois-mcp"],
+      "args": ["redis.do-mcp"],
       "env": {
         "REDOIS_URL": "https://your-worker.workers.dev",
         "REDOIS_TOKEN": "your-auth-token"
@@ -597,7 +597,7 @@ For direct HTTP integration without the CLI:
 ```json
 {
   "mcpServers": {
-    "redois": {
+    "redis.do": {
       "url": "https://your-worker.workers.dev/mcp",
       "headers": {
         "Authorization": "Bearer your-auth-token"
@@ -641,7 +641,7 @@ For custom authentication, modify the MCP handler in your entrypoint:
 ```typescript
 const server = createMcpServer({
   redisAccess,
-  name: 'redois',
+  name: 'redis.do',
   version: '0.1.0',
 })
 

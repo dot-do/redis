@@ -1,14 +1,14 @@
 /**
- * Redois Client Library
+ * Redis.do Client Library
  *
- * An ioredis-compatible client for Redois - Redis on Cloudflare Workers.
+ * An ioredis-compatible client for Redis.do - Redis on Cloudflare Workers.
  *
  * @example
  * ```ts
- * import { Redis } from 'redois/client'
+ * import { Redis } from 'redis.do/client'
  *
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token'
  * })
  *
@@ -30,7 +30,7 @@
  *
  * // Auto-pipelining (batches concurrent requests)
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   enableAutoPipelining: true
  * })
@@ -44,14 +44,14 @@
  *
  * // WebSocket transport
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   useWebSocket: true
  * })
  *
  * // Key prefix
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   keyPrefix: 'myapp:'
  * })

@@ -1,15 +1,15 @@
 ---
-title: Introduction to Redois
+title: Introduction to Redis.do
 description: A Redis-compatible database built on Cloudflare Workers, Durable Objects, and SQLite with MCP support.
 ---
 
-# Introduction to Redois
+# Introduction to Redis.do
 
-Redois is a **Redis-compatible database** built entirely on Cloudflare's edge infrastructure. It provides a familiar Redis API while leveraging Cloudflare Workers, Durable Objects, and SQLite for persistence, making it ideal for serverless applications that need low-latency data access at the edge.
+Redis.do is a **Redis-compatible database** built entirely on Cloudflare's edge infrastructure. It provides a familiar Redis API while leveraging Cloudflare Workers, Durable Objects, and SQLite for persistence, making it ideal for serverless applications that need low-latency data access at the edge.
 
-## What is Redois?
+## What is Redis.do?
 
-Redois implements the Redis wire protocol and command set on top of Cloudflare's global network. Instead of running a traditional Redis server, your data is distributed across Cloudflare's edge locations using Durable Objects with SQLite storage.
+Redis.do implements the Redis wire protocol and command set on top of Cloudflare's global network. Instead of running a traditional Redis server, your data is distributed across Cloudflare's edge locations using Durable Objects with SQLite storage.
 
 This architecture provides several unique advantages:
 
@@ -22,7 +22,7 @@ This architecture provides several unique advantages:
 
 ### Redis-Compatible API
 
-Redois supports the most commonly used Redis commands across all data types:
+Redis.do supports the most commonly used Redis commands across all data types:
 
 - **Strings**: GET, SET, INCR, APPEND, and more
 - **Hashes**: HGET, HSET, HGETALL, HINCRBY
@@ -61,7 +61,7 @@ Native support for the Model Context Protocol (MCP) enables AI agents to interac
 ### Installation
 
 ```bash
-npm install redois
+npm install redis.do
 ```
 
 ### Deploying to Cloudflare
@@ -69,7 +69,7 @@ npm install redois
 1. Clone or create a new project:
 
 ```bash
-npx create-cloudflare@latest my-redis --template redois
+npx create-cloudflare@latest my-redis --template redis.do
 ```
 
 2. Configure your `wrangler.jsonc`:
@@ -104,7 +104,7 @@ wrangler deploy
 
 ### Using the REST API
 
-Once deployed, you can interact with Redois using HTTP requests:
+Once deployed, you can interact with Redis.do using HTTP requests:
 
 ```bash
 # SET a key
@@ -120,10 +120,10 @@ curl https://your-worker.workers.dev/GET/mykey
 
 ### Using the Client Library
 
-For Node.js applications, use the Redois client:
+For Node.js applications, use the Redis.do client:
 
 ```typescript
-import { Redis } from 'redois/client'
+import { Redis } from 'redis.do/client'
 
 const redis = new Redis({
   url: 'https://your-worker.workers.dev',
@@ -152,12 +152,12 @@ const results = await pipeline.exec()
 
 ## Architecture Overview
 
-Redois uses a sharded architecture with three types of Durable Objects:
+Redis.do uses a sharded architecture with three types of Durable Objects:
 
 ```
                     ┌─────────────────────────────────┐
                     │       Cloudflare Worker         │
-                    │        (RedoisEntrypoint)       │
+                    │        (Redis.doEntrypoint)       │
                     └────────────┬────────────────────┘
                                  │
            ┌─────────────────────┼─────────────────────┐
@@ -189,7 +189,7 @@ Redois uses a sharded architecture with three types of Durable Objects:
     Deep dive into the system design, sharding, and SQLite schema
   </Card>
   <Card title="MCP Integration" href="/docs/mcp">
-    Using Redois with AI agents and the Model Context Protocol
+    Using Redis.do with AI agents and the Model Context Protocol
   </Card>
   <Card title="Client Library" href="/docs/client">
     JavaScript/TypeScript client documentation with ioredis-compatible API

@@ -1,7 +1,7 @@
 /**
- * Redis Client - ioredis-compatible client for Redois
+ * Redis Client - ioredis-compatible client for Redis.do
  *
- * Provides a Redis client that communicates with Redois over HTTP/JSON-RPC or WebSocket.
+ * Provides a Redis client that communicates with Redis.do over HTTP/JSON-RPC or WebSocket.
  * Supports both promise and callback styles, with full command coverage.
  *
  * Features:
@@ -45,7 +45,7 @@ interface PendingWebSocketRequest {
  * ```ts
  * // Basic usage
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token'
  * })
  *
@@ -54,7 +54,7 @@ interface PendingWebSocketRequest {
  *
  * // With auto-pipelining (batches concurrent requests)
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   enableAutoPipelining: true
  * })
@@ -68,14 +68,14 @@ interface PendingWebSocketRequest {
  *
  * // With WebSocket transport
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   useWebSocket: true
  * })
  *
  * // With key prefix
  * const redis = new Redis({
- *   url: 'https://your-redois.workers.dev',
+ *   url: 'https://your-redis.do.workers.dev',
  *   token: 'your-auth-token',
  *   keyPrefix: 'myapp:'
  * })
@@ -427,10 +427,10 @@ export class Redis {
   /**
    * Creates a pipeline for batching commands (alias for pipeline()).
    *
-   * **Important Limitation:** Redois does NOT provide true MULTI/EXEC transaction
+   * **Important Limitation:** Redis.do does NOT provide true MULTI/EXEC transaction
    * atomicity. Unlike Redis, where MULTI/EXEC guarantees that all commands in a
    * transaction are executed atomically without interleaving from other clients,
-   * Redois executes batched commands sequentially but without isolation guarantees.
+   * Redis.do executes batched commands sequentially but without isolation guarantees.
    *
    * This means:
    * - Commands are sent together for efficiency (reduced round trips)
@@ -3278,7 +3278,7 @@ export class Redis {
 
   /**
    * Get cluster mode status (ioredis compatibility)
-   * Always returns false as Redois doesn't use cluster mode
+   * Always returns false as Redis.do doesn't use cluster mode
    */
   get isCluster(): boolean {
     return false
@@ -3480,10 +3480,10 @@ export class Redis {
   // ─────────────────────────────────────────────────────────────────
 
   /**
-   * SELECT database (no-op for Redois, but provided for compatibility)
+   * SELECT database (no-op for Redis.do, but provided for compatibility)
    */
   async select(_db: number, callback?: Callback<'OK'>): Promise<'OK'> {
-    // Redois uses a single namespace per deployment, so SELECT is a no-op
+    // Redis.do uses a single namespace per deployment, so SELECT is a no-op
     callback?.(null, 'OK')
     return 'OK'
   }

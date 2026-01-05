@@ -932,7 +932,7 @@ export function createMcpServer(options: CreateMcpServerOptions): McpServer {
   const server = new McpServer({
     name: options.name,
     version: options.version,
-    instructions: options.instructions ?? 'Redois MCP Server - Redis-compatible database with AI tool access',
+    instructions: options.instructions ?? 'Redis.do MCP Server - Redis-compatible database with AI tool access',
   })
 
   // Create a Redis proxy from the access interface
@@ -993,7 +993,7 @@ function createRedisProxyFromAccess(access: RedisAccess): RedisProxy {
     rename: async (_key: string, _newKey: string) => 'OK', // Simplified
     dbsize: async () => 0, // Simplified
     flushdb: async () => 'OK', // Simplified
-    info: async (_section?: string) => 'Redois Server', // Simplified
+    info: async (_section?: string) => 'Redis.do Server', // Simplified
     ping: async (message?: string) => message ?? 'PONG',
   }
 }

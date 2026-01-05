@@ -1,33 +1,33 @@
 ---
 title: Client Library Documentation
-description: JavaScript/TypeScript client library for Redois with ioredis-compatible API and pipeline support.
+description: JavaScript/TypeScript client library for Redis.do with ioredis-compatible API and pipeline support.
 ---
 
 # Client Library Documentation
 
-Redois provides a JavaScript/TypeScript client library with an API compatible with ioredis. This allows you to use familiar Redis patterns while connecting to your Redois deployment.
+Redis.do provides a JavaScript/TypeScript client library with an API compatible with ioredis. This allows you to use familiar Redis patterns while connecting to your Redis.do deployment.
 
 <Callout type="info">
-The Redois client uses HTTP under the hood, not TCP. This means no connection pooling is required, and the client is fully stateless and safe to use in serverless environments.
+The Redis.do client uses HTTP under the hood, not TCP. This means no connection pooling is required, and the client is fully stateless and safe to use in serverless environments.
 </Callout>
 
 ## Installation
 
 ```bash
-npm install redois
+npm install redis.do
 ```
 
 Or with other package managers:
 
 ```bash
 # Yarn
-yarn add redois
+yarn add redis.do
 
 # pnpm
-pnpm add redois
+pnpm add redis.do
 
 # Bun
-bun add redois
+bun add redis.do
 ```
 
 ## Basic Usage
@@ -35,7 +35,7 @@ bun add redois
 ### Creating a Client
 
 ```typescript
-import { Redis } from 'redois/client'
+import { Redis } from 'redis.do/client'
 
 const redis = new Redis({
   url: 'https://your-worker.workers.dev',
@@ -47,7 +47,7 @@ const redis = new Redis({
 
 ```typescript
 interface RedisOptions {
-  // Required: URL of your Redois deployment
+  // Required: URL of your Redis.do deployment
   url: string
 
   // Optional: Authentication token
@@ -541,7 +541,7 @@ The Pipeline class supports all major Redis commands:
 
 ## TypeScript Support
 
-Redois is written in TypeScript and provides full type definitions.
+Redis.do is written in TypeScript and provides full type definitions.
 
 ### Type Imports
 
@@ -552,7 +552,7 @@ import type {
   ScanOptions,
   ZAddOptions,
   ZRangeOptions,
-} from 'redois'
+} from 'redis.do'
 ```
 
 ### Generic Response Types
@@ -615,7 +615,7 @@ const result = await redis.get('key').catch(err => {
 
 ## Connection Management
 
-The Redois client is stateless and uses HTTP for each request. There's no need to manage connections or implement reconnection logic.
+The Redis.do client is stateless and uses HTTP for each request. There's no need to manage connections or implement reconnection logic.
 
 ```typescript
 // Client can be reused across requests
@@ -629,7 +629,7 @@ const redis = new Redis({ url: '...' })
 ## Best Practices
 
 <Callout type="warning">
-While Redois is compatible with ioredis API patterns, some advanced features like transactions (MULTI/EXEC) and Lua scripting (EVAL) are not yet supported. Use pipelining for batch operations instead.
+While Redis.do is compatible with ioredis API patterns, some advanced features like transactions (MULTI/EXEC) and Lua scripting (EVAL) are not yet supported. Use pipelining for batch operations instead.
 </Callout>
 
 ### Use Pipelines for Batch Operations

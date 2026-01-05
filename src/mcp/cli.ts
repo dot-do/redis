@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Redois MCP CLI
+ * Redis.do MCP CLI
  *
  * Command-line interface for MCP (Model Context Protocol) communication
  * Uses stdio transport for JSON-RPC messages.
  *
  * Usage:
- *   npx redois-mcp --url https://your-redois.workers.dev --token your-token
+ *   npx redis.do-mcp --url https://your-redis.do.workers.dev --token your-token
  *
  * Or via stdin/stdout for MCP clients:
- *   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | npx redois-mcp
+ *   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | npx redis.do-mcp
  */
 
 import * as readline from 'readline'
@@ -91,7 +91,7 @@ class McpStdioClient {
   ): JsonRpcResponse {
     this._initialized = true
     this.serverInfo = {
-      name: 'redois-mcp-cli',
+      name: 'redis.do-mcp-cli',
       version: '0.1.0',
     }
 
@@ -104,7 +104,7 @@ class McpStdioClient {
           tools: { listChanged: false },
         },
         serverInfo: this.serverInfo,
-        instructions: 'Redois MCP CLI - Connect to a Redois instance via HTTP RPC',
+        instructions: 'Redis.do MCP CLI - Connect to a Redis.do instance via HTTP RPC',
       },
     }
   }
@@ -297,7 +297,7 @@ class McpStdioClient {
   }
 
   /**
-   * Handle tools/call request - forward to Redois server
+   * Handle tools/call request - forward to Redis.do server
    */
   private async handleToolCall(
     id: string | number | null,
@@ -306,7 +306,7 @@ class McpStdioClient {
     const { name, arguments: args = {} } = params
 
     try {
-      // Make RPC call to Redois server
+      // Make RPC call to Redis.do server
       const result = await this.executeRpc(name, args)
 
       const toolResult: McpToolCallResult = {
@@ -340,7 +340,7 @@ class McpStdioClient {
   }
 
   /**
-   * Execute an RPC call to the Redois server
+   * Execute an RPC call to the Redis.do server
    */
   private async executeRpc(method: string, params: Record<string, unknown>): Promise<unknown> {
     const headers: Record<string, string> = {
@@ -494,7 +494,7 @@ function parseArgs(): CliConfig {
         break
       case '--version':
       case '-v':
-        console.log('redois-mcp-cli v0.1.0')
+        console.log('redis.do-mcp-cli v0.1.0')
         process.exit(0)
         break
     }
@@ -519,13 +519,13 @@ function parseArgs(): CliConfig {
 
 function printHelp(): void {
   console.log(`
-Redois MCP CLI - Model Context Protocol interface for Redois
+Redis.do MCP CLI - Model Context Protocol interface for Redis.do
 
 Usage:
-  redois-mcp [options]
+  redis.do-mcp [options]
 
 Options:
-  -u, --url <url>      Redois server URL (required, or set REDOIS_URL)
+  -u, --url <url>      Redis.do server URL (required, or set REDOIS_URL)
   -t, --token <token>  Authentication token (or set REDOIS_TOKEN)
   -d, --debug          Enable debug logging to stderr
   -h, --help           Show this help message
@@ -533,20 +533,20 @@ Options:
 
 Examples:
   # Start MCP server with stdio transport
-  redois-mcp --url https://redois.example.com --token abc123
+  redis.do-mcp --url https://redis.do.example.com --token abc123
 
   # Using environment variables
-  REDOIS_URL=https://redois.example.com REDOIS_TOKEN=abc123 redois-mcp
+  REDOIS_URL=https://redis.do.example.com REDOIS_TOKEN=abc123 redis.do-mcp
 
   # With Claude Desktop or other MCP clients
-  echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | redois-mcp --url https://redois.example.com
+  echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | redis.do-mcp --url https://redis.do.example.com
 
 MCP Configuration (claude_desktop_config.json):
   {
     "mcpServers": {
-      "redois": {
+      "redis.do": {
         "command": "npx",
-        "args": ["redois-mcp", "--url", "https://your-redois.workers.dev"],
+        "args": ["redis.do-mcp", "--url", "https://your-redis.do.workers.dev"],
         "env": {
           "REDOIS_TOKEN": "your-token"
         }
