@@ -1,5 +1,5 @@
 {
-  "name": "redois",
+  "name": "redisdo",
   "version": "0.1.0",
   "description": "100% Redis-compatible database on Cloudflare Workers, Durable Objects, and SQLite",
   "type": "module",
@@ -52,7 +52,7 @@
   "author": "Nathan Clevenger",
   "repository": {
     "type": "git",
-    "url": "https://github.com/drivly/redois.git"
+    "url": "https://github.com/dot-do/redois.git"
   },
   "license": "MIT",
   "devDependencies": {

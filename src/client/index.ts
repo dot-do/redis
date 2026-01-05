@@ -61,8 +61,12 @@
  * @packageDocumentation
  */
 
+import { Redis } from './redis'
 export { Redis, RedisError } from './redis'
 export { Pipeline } from './pipeline'
+
+// Default export for ioredis compatibility (import Redis from 'redisdo/client')
+export default Redis
 export type { PipelineCommand, PipelineExecResult } from './pipeline'
 
 // Re-export types from types module

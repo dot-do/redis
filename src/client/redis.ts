@@ -134,50 +134,45 @@ export class Redis {
   // Status
   private _status: 'connecting' | 'connect' | 'ready' | 'close' | 'end' = 'close'
 
-  constructor(options: RedisOptions | string) {
-    if (typeof options === 'string') {
+  constructor(urlOrOptions?: RedisOptions | string, options?: Partial<RedisOptions>) {
+    // Support ioredis-style constructor: new Redis(), new Redis(url), new Redis(url, options), new Redis(options)
+    let opts: RedisOptions
+
+    if (typeof urlOrOptions === 'string') {
       // Parse connection string: redis://token@host/path or https://host/path
-      const url = new URL(options)
-      this.token = url.username || url.password || ''
+      const url = new URL(urlOrOptions)
+      const token = url.username || url.password || ''
       url.username = ''
       url.password = ''
-      this.url = url.toString().replace(/\/$/, '')
-      this.enableAutoPipelining = false
-      this.autoPipelineWindowMs = 0
-      this.maxAutoPipelineBatchSize = 100
-      this.useWebSocket = false
-      this.wsReconnectIntervalMs = 1000
-      this.timeoutMs = 30000
-      this.enableDeduplication = false
-      this.deduplicationTtlMs = 100
-      this.fetchFn = globalThis.fetch.bind(globalThis)
-      this.retryOnError = true
-      this.maxRetries = 3
-      this.retryDelayMs = 100
-      this.keyPrefix = ''
-      this.readOnly = false
-      this._name = ''
-      this.enableLatencyMonitoring = false
+      opts = {
+        url: url.toString().replace(/\/$/, ''),
+        token,
+        ...options
+      }
+    } else if (urlOrOptions) {
+      opts = urlOrOptions
     } else {
-      this.url = options.url.replace(/\/$/, '')
-      this.token = options.token ?? ''
-      this.enableAutoPipelining = options.enableAutoPipelining ?? false
-      this.autoPipelineWindowMs = options.autoPipelineWindowMs ?? 0
-      this.maxAutoPipelineBatchSize = options.maxAutoPipelineBatchSize ?? 100
-      this.useWebSocket = options.useWebSocket ?? false
-      this.wsReconnectIntervalMs = options.wsReconnectIntervalMs ?? 1000
-      this.timeoutMs = options.timeoutMs ?? 30000
-      this.enableDeduplication = options.enableDeduplication ?? false
-      this.deduplicationTtlMs = options.deduplicationTtlMs ?? 100
-      this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis)
-      this.retryOnError = options.retryOnError ?? true
-      this.maxRetries = options.maxRetries ?? 3
-      this.retryDelayMs = options.retryDelayMs ?? 100
-      this.keyPrefix = options.keyPrefix ?? ''
-      this.readOnly = options.readOnly ?? false
-      this._name = options.name ?? ''
-      this.enableLatencyMonitoring = options.enableLatencyMonitoring ?? false
+      opts = { url: 'http://localhost:8787' }
     }
+
+    this.url = opts.url.replace(/\/$/, '')
+    this.token = opts.token ?? ''
+    this.enableAutoPipelining = opts.enableAutoPipelining ?? false
+    this.autoPipelineWindowMs = opts.autoPipelineWindowMs ?? 0
+    this.maxAutoPipelineBatchSize = opts.maxAutoPipelineBatchSize ?? 100
+    this.useWebSocket = opts.useWebSocket ?? false
+    this.wsReconnectIntervalMs = opts.wsReconnectIntervalMs ?? 1000
+    this.timeoutMs = opts.timeoutMs ?? 30000
+    this.enableDeduplication = opts.enableDeduplication ?? false
+    this.deduplicationTtlMs = opts.deduplicationTtlMs ?? 100
+    this.fetchFn = opts.fetch ?? globalThis.fetch.bind(globalThis)
+    this.retryOnError = opts.retryOnError ?? true
+    this.maxRetries = opts.maxRetries ?? 3
+    this.retryDelayMs = opts.retryDelayMs ?? 100
+    this.keyPrefix = opts.keyPrefix ?? ''
+    this.readOnly = opts.readOnly ?? false
+    this._name = opts.name ?? ''
+    this.enableLatencyMonitoring = opts.enableLatencyMonitoring ?? false
 
     // Start deduplication cleanup if enabled
     if (this.enableDeduplication) {
